@@ -860,7 +860,7 @@ pub async fn probe(client: &reqwest::Client, repo: &str, tag: &str) -> Value {
             tag.to_string()
         },
         proxy: cur.proxy,
-        pattern: if repo == cur.repo { cur.pattern.clone() } else { String::new() },
+        pattern: if repo == cur.repo.as_str() { cur.pattern.clone() } else { String::new() },
         token: cur.token,
     };
     if cfg.repo.is_empty() || !cfg.repo.contains('/') {
