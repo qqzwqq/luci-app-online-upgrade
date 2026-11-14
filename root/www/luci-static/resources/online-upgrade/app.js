@@ -2618,7 +2618,7 @@
 			var cls = typeof node.className === 'string' ? node.className : '';
 			var dm = (node.getAttribute('data-darkmode') || '').toLowerCase();
 			var theme = (node.getAttribute('data-theme') || '').toLowerCase();
-			if (/(^|\\s)dark(\\s|$)/i.test(cls) ||
+			if (/(^|\s)dark(\s|$)/i.test(cls) ||
 				(dm && dm !== 'false' && dm !== '0' && dm !== 'light') ||
 				theme === 'dark' || (node.classList && node.classList.contains('darkmode'))) {
 				dark = true;
@@ -2628,7 +2628,7 @@
 			try { style = window.getComputedStyle(node); } catch (e) { style = null; }
 			if (style) {
 				var bg = style.backgroundColor || '';
-				var m = bg.match(/rgba?\\(\\s*([\\d.]+)[, ]+\\s*([\\d.]+)[, ]+\\s*([\\d.]+)/i);
+				var m = bg.match(/rgba?\(\s*([\d.]+)[, ]+\s*([\d.]+)[, ]+\s*([\d.]+)(?:[,/ ]+\s*([\d.]+))?\s*\)/i);
 				if (m && (style.backgroundImage === 'none' || !style.backgroundImage)) {
 					var alpha = m[4] === undefined ? 1 : Number(m[4]);
 					var r = Number(m[1]), g = Number(m[2]), b = Number(m[3]);
