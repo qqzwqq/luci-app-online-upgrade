@@ -767,6 +767,18 @@ pub async fn run(force: bool) -> i32 {
         return 1;
     }
 
+    // 版本完全不可比较时，普通升级必须停止；只有用户明确选择强制升级
+    // 才能继续人工覆盖。series（如 25.12 对 25.12.6）仍由上方永久拦截。
+    if asset.relation == "unknown" && !force {
+        let err = format!(
+            "目标版本 [{}] 与本机版本无法可靠比较；普通升级已阻止。请先核实 Release 的完整版本号，只有确认固件来源和版本后才可使用强制升级",
+            fw_version
+        );
+        logline!("[upgrade] {err}");
+        status::set_error("failed", 100, "版本无法比较，已阻止普通升级", &err);
+        return 1;
+    }
+
     let device = crate::compat::DeviceProfile::current();
     let compat = match asset.rule.as_deref() {
         Some(rule) => crate::compat::evaluate_with_rule(&device, &name, rule),
