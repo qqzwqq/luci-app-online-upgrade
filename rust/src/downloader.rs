@@ -32,9 +32,8 @@ const MAX_CHUNK_RETRIES: u32 = 3;
 
 /// 单次下载尝试的失败类型。
 ///
-/// `Stopped` 表示整个任务终止（用户取消或慢速保护），
-/// 绝不能触发切换到其他镜像；`Other` 表示当前线路层面的
-/// 失败，调用方可以换一个 URL 重试。
+/// 用户取消表示整个任务终止；慢速保护只结束当前线路，
+/// 调用方可以切换到下一个 URL；`Other` 也是线路层面的失败。
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum DownloadError {
     /// 带明确原因类型的终止。
@@ -428,7 +427,7 @@ fn spawn_slow_monitor(
             let in_grace = start.elapsed() < Duration::from_secs(policy.grace_secs);
             if let Some((avg, secs)) = tracker.observe(delta, &policy, in_grace) {
                 let reason = format!(
-                    "下载速度异常缓慢，已自动停止：近 {secs} 秒平均 {:.1} KB/s，低于阈值 {:.1} KB/s；线路 {}。请切换加速节点或稍后重试（当前线路的断点记录已保留）",
+                    "当前下载线路速度异常缓慢：近 {secs} 秒平均 {:.1} KB/s，低于阈值 {:.1} KB/s；已停止线路 {}",
                     avg as f64 / 1024.0,
                     policy.min_bps as f64 / 1024.0,
                     short_url(&route)
