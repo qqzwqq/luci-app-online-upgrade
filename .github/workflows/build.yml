@@ -120,6 +120,10 @@ jobs:
             bin_artifact: online-upgrade-x86_64-unknown-linux-musl
             pkg_arch: x86_64
             ext: apk
+          - sdk_url: https://downloads.openwrt.org/releases/25.12.6/targets/rockchip/armv8/openwrt-sdk-25.12.6-rockchip-armv8_gcc-14.3.0_musl.Linux-x86_64.tar.zst
+            bin_artifact: online-upgrade-aarch64-unknown-linux-musl
+            pkg_arch: aarch64_generic
+            ext: apk
     steps:
       - name: Checkout source
         uses: actions/checkout@v7
@@ -132,7 +136,7 @@ jobs:
         uses: actions/cache@v6
         with:
           path: sdk.tar
-          key: immortalwrt-sdk-25.12.0-${{ matrix.pkg_arch }}-v1
+          key: sdk-${{ matrix.pkg_arch }}-v2
 
       - name: Download SDK
         run: |
@@ -342,7 +346,7 @@ jobs:
               "不使用日期标签或预发布标签；插件自我更新只读取稳定的 "
               "`vX.Y.Z` Release，并按 manifest 中的架构与 SHA256 选择安装包。\n\n"
               "适用 ImmortalWrt 25.12+ / OpenWrt 25+（apk 包管理器），提供 "
-              "`aarch64_cortex-a53`（mediatek/filogic）与 `x86_64` 两个架构。\n\n"
+              "`aarch64_cortex-a53`（mediatek/filogic）、`aarch64_generic`（rockchip/armv8）与 `x86_64` 三个架构。\n\n"
               "---\n\n"
               "### 更新日志（同步自 CHANGELOG.md [" + version + "]）\n\n"
           )
@@ -378,34 +382,3 @@ jobs:
           files: /tmp/pkgs/*
           token: ${{ github.token }}
           make_latest: true
-
-      # 每次发布成功后只保留当前 Release，删除更早的 Release 对象。
-      # 只删 Release，不删除 Git tag：tag 仍可作为历史源码引用；
-      # 如需连 tag 一起清理，可给 gh release delete 增加 --cleanup-tag。
-      - name: Prune older releases (keep latest only)
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TAG: ${{ needs.verify.outputs.tag }}
-        run: |
-          set -euo pipefail
-          # 给 Release API 一点可见性时间，避免刚上传的 Release 尚未出现在列表中。
-          sleep 3
-          echo "保留当前 Release: $TAG"
-          gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
-            --jq '.[] | .tag_name' > /tmp/all-releases.txt
-          while IFS= read -r old; do
-            [ -n "$old" ] || continue
-            [ "$old" = "$TAG" ] && continue
-            echo "删除旧 Release: $old"
-            gh release delete "$old" --repo "$GITHUB_REPOSITORY" --yes
-          done < /tmp/all-releases.txt
-
-          remaining=$(gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
-            --jq '.[] | .tag_name' | wc -l)
-          if [ "$remaining" -ne 1 ]; then
-            echo "清理后 Release 数量为 $remaining，期望 1" >&2
-            gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
-              --jq '.[] | .tag_name' >&2
-            exit 1
-          fi
-          echo "Release 清理完成，当前仅保留: $TAG"
