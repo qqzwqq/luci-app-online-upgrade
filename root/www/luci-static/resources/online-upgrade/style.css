@@ -4501,3 +4501,105 @@ html body .cbi-map.ou-container.ou-theme-dark .ou-stat-sub {
 	-webkit-text-fill-color: #e5eaf0 !important;
 	border-color: #536171 !important;
 }
+
+
+/* v2.6.14：暗色模式统一全灰底，不再保留白色/彩色面板 */
+.ou-container.ou-theme-dark {
+	--ou-dark-page: #202327;
+	--ou-dark-card: #292e34;
+	--ou-dark-panel: #30363d;
+	--ou-dark-panel-soft: #363d45;
+	--ou-dark-border: #4b5561;
+	--ou-dark-text: #edf0f3;
+	--ou-dark-muted: #c2c9d1;
+	background: var(--ou-dark-page) !important;
+	background-color: var(--ou-dark-page) !important;
+	color: var(--ou-dark-text) !important;
+	color-scheme: dark !important;
+}
+.ou-container.ou-theme-dark :is(
+	.ou-hero-card, .ou-feature-item, .ou-icon-badge,
+	.ou-stat-card, .ou-stat-card-full, .ou-stat-icon-wrap,
+	.ou-evidence, .ou-evidence-state, .ou-evidence-link,
+	.ou-fact, .ou-basis-list li, .ou-ext-link, .ou-tag-chip,
+	.ou-notice-box, .ou-step-circle, .ou-progress-track,
+	.ou-details, .ou-summary, .ou-adv-grid, .ou-badge-tune,
+	.ou-form-card, .ou-config-summary-card, .ou-quick-pill,
+	.ou-plugin-row, .ou-plugin-detail, .ou-convention-item,
+	.ou-task-detail-item, .ou-chunk-panel,
+	.ou-st-diag, .ou-st-diag-grid .ou-st-diag-sec,
+	.ou-st-device, .ou-st-network, .ou-st-panel, .ou-st-fw,
+	.ou-st-state, .ou-st-layer, .ou-card, .ou-panel,
+	.ou-section, .ou-info-box, .ou-result-card, .ou-log-card
+) {
+	background: var(--ou-dark-card) !important;
+	background-color: var(--ou-dark-card) !important;
+	background-image: none !important;
+	border-color: var(--ou-dark-border) !important;
+	color: var(--ou-dark-text) !important;
+}
+.ou-container.ou-theme-dark :is(
+	.ou-hero-content, .ou-stat-body, .ou-card-body,
+	.ou-panel-body, .ou-details-content, .ou-evidence-body,
+	.ou-plugin-detail-body, .ou-st-diag-body, .ou-task-detail-body
+) {
+	background: transparent !important;
+	background-color: transparent !important;
+	color: var(--ou-dark-text) !important;
+}
+.ou-container.ou-theme-dark :is(
+	.ou-feature-item, .ou-stat-card, .ou-stat-card-full,
+	.ou-evidence-state, .ou-fact, .ou-basis-list li,
+	.ou-ext-link, .ou-tag-chip, .ou-notice-box,
+	.ou-step-circle, .ou-progress-track, .ou-summary,
+	.ou-quick-pill, .ou-plugin-row, .ou-convention-item,
+	.ou-task-detail-item, .ou-chunk-panel,
+	.ou-st-state, .ou-st-layer
+) {
+	background: var(--ou-dark-panel) !important;
+	background-color: var(--ou-dark-panel) !important;
+}
+.ou-container.ou-theme-dark :is(
+	input, select, textarea, button:not(.ou-btn),
+	.cbi-input-text, .cbi-input-select, .cbi-input-password
+) {
+	background: var(--ou-dark-panel-soft) !important;
+	background-color: var(--ou-dark-panel-soft) !important;
+	background-image: none !important;
+	color: var(--ou-dark-text) !important;
+	-webkit-text-fill-color: var(--ou-dark-text) !important;
+	border-color: var(--ou-dark-border) !important;
+	color-scheme: dark !important;
+}
+.ou-container.ou-theme-dark :is(input, textarea)::placeholder {
+	color: var(--ou-dark-muted) !important;
+	-webkit-text-fill-color: var(--ou-dark-muted) !important;
+}
+.ou-container.ou-theme-dark :is(
+	.ou-mobile-toggle, .ou-plugin-toggle,
+	.ou-btn-default, .ou-btn-danger,
+	.ou-btn-secondary, .ou-btn-ghost
+) {
+	background: var(--ou-dark-panel) !important;
+	background-color: var(--ou-dark-panel) !important;
+	background-image: none !important;
+	color: var(--ou-dark-text) !important;
+	-webkit-text-fill-color: var(--ou-dark-text) !important;
+	border-color: var(--ou-dark-border) !important;
+}
+.ou-container.ou-theme-dark :is(
+	.ou-hero-card, .ou-card, .ou-panel, .ou-section,
+	.ou-form-card, .ou-config-summary-card, .ou-st-panel,
+	.ou-st-device, .ou-st-network, .ou-st-fw, .ou-plugin-detail,
+	.ou-evidence, .ou-notice-box, .ou-chunk-panel
+) :is(::before, ::after) {
+	background-image: none !important;
+}
+.ou-container.ou-theme-dark :is(
+	.ou-terminal, pre, .ou-code, .ou-log-output
+) {
+	background: #171a1e !important;
+	background-color: #171a1e !important;
+	color: #e3e7eb !important;
+	border-color: var(--ou-dark-border) !important;
+}
