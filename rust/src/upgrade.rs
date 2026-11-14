@@ -235,10 +235,9 @@ fn cleanup_download() {
 ///
 /// 文件长度不能作为证据：下载器会用 `set_len` 预分配，
 /// 半写入的文件也可能长度正确，而尾部仍是零填充。
-/// 因此标记中同时保存资产的 `updated` 时间戳*和*
-/// 完成文件的 SHA256；不含哈希的标记（旧版本写入）
-/// 一律不可信。调用方之后仍必须执行完整校验——
-/// 复用只跳过网络传输，不跳过哈希校验。
+/// 标记保存资产的 `updated` 时间戳和完成文件 SHA256；新标记还保存
+/// 文件名与下载地址。兼容旧版两行标记时仍会重新计算并比对本地 SHA256。
+/// 调用方之后仍必须执行完整校验——复用只跳过网络传输，不跳过校验。
 fn reuse_download(updated: &str, size: u64, name: &str, url: &str) -> bool {
     let meta = match std::fs::metadata(TMP_FIRMWARE) {
         Ok(m) => m,
@@ -256,9 +255,18 @@ fn reuse_download(updated: &str, size: u64, name: &str, url: &str) -> bool {
     let recorded = lines.next().unwrap_or("").to_lowercase();
     let marked_name = lines.next().unwrap_or("");
     let marked_url = lines.next().unwrap_or("");
-    if stamp != updated || recorded.len() != 64 || marked_name != name || marked_url != url {
+    // 兼容 2.6.20 及更早版本的两行标记：仍要求时间戳、文件长度和
+    // 磁盘 SHA256 全部匹配；新标记还会额外核对资产文件名与下载地址。
+    let legacy_marker = marked_name.is_empty() && marked_url.is_empty();
+    if stamp != updated
+        || recorded.len() != 64
+        || (!legacy_marker && (marked_name != name || marked_url != url))
+    {
         logline!("[download] 拒绝复用固件: 资产时间戳、文件名、下载地址或哈希标记不匹配");
         return false;
+    }
+    if legacy_marker {
+        logline!("[download] 检测到旧版两行下载标记；通过时间戳、文件大小和本地 SHA256 复核后兼容复用");
     }
     match crate::hash::sha256_file(TMP_FIRMWARE) {
         Ok(actual) => {
@@ -277,8 +285,8 @@ fn reuse_download(updated: &str, size: u64, name: &str, url: &str) -> bool {
     }
 }
 
-/// 标记格式：第 1 行为资产的 `updated` 时间戳，第 2 行为完成文件的
-/// 本地 SHA256。仅在文件通过校验后写入。
+/// 标记格式依次保存资产时间戳、本地 SHA256、文件名和原始下载地址。
+/// 仅在下载完成且完整性/设备预检流程通过后写入。
 fn write_download_marker(updated: &str, sha256: &str, name: &str, url: &str) {
     let _ = std::fs::write(TMP_FIRMWARE_TS, format!("{updated}\n{sha256}\n{name}\n{url}\n"));
 }
