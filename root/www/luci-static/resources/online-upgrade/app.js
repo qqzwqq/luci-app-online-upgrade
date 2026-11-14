@@ -304,7 +304,7 @@
 		series: '目标仅声明版本系列'
 	};
 	// 版本判定的三种状态：可信可判定 / 弱依据可疑 / 确实无法比较。
-	// 无法比较不等于阻断，只是把依据说清楚后按「升级到该发布版本」处理。
+	// 版本无法比较时不得显示为最新，也不得开放普通升级。
 	var STATE_TEXT = {
 		decidable: '版本可判定',
 		suspect: '判定依据较弱',
@@ -313,7 +313,7 @@
 	var STATE_DESC = {
 		decidable: '本地与目标都取到了可信版本号，可直接比较版本方向',
 		suspect: '本地版本来自构建时间、修订号或包版本等弱依据，方向仅供参考',
-		incomparable: '取不到可比较的本地版本号，按「将升级到该发布版本」处理；机型、架构与哈希校验仍然生效'
+		incomparable: '本机与目标版本缺少可比较的完整版本号；停止自动升级判定，需补齐版本信息后重新检测'
 	};
 	var CONFIDENCE_TEXT = {
 		strong: '可信',
@@ -424,7 +424,9 @@
 		var checks = (ci && ci.checks) || {};
 		var stateText = hasUpdate ? '发现新版本' : '已是最新';
 		var stateCls = 'ok';
-		if (lv === 'incompatible') { stateText = '固件不匹配'; stateCls = 'err'; }
+		if (ver.relation === 'series') { stateText = '版本信息不完整'; stateCls = 'warn'; }
+		else if (ver.relation === 'unknown') { stateText = '版本无法比较'; stateCls = 'warn'; }
+		else if (lv === 'incompatible') { stateText = '固件不匹配'; stateCls = 'err'; }
 		else if (lv === 'warning') { stateText = '需人工核对'; stateCls = 'warn'; }
 		else if (lv === 'unknown') { stateText = '适配未知'; stateCls = 'warn'; }
 		else if (sameVersion) { stateText = '已是最新（同版本）'; stateCls = 'ok'; }
