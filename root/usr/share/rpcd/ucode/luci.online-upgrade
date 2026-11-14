@@ -279,22 +279,21 @@ const methods = {
 	},
 
 	start_upgrade: {
-		// rpcd 依据该值的*类型*推导 blobmsg 策略，而不是依据
-		// 类型名字符串：写成 'boolean' 会落到 BLOBMSG_TYPE_STRING，
-		// 导致传入 JSON true/false 时被 UBUS_STATUS_INVALID_ARGUMENT 拒绝。
-		// 写成字面量 false 才能得到 BLOBMSG_TYPE_INT8（即 BLOBMSG_TYPE_BOOL）。
-		args: { force: false },
+		// false 字面量映射为 ubus boolean 参数类型。
+		args: { force: false, confirm_version: false },
 		call: function(request) {
 			let pid = busy_pid();
 			if (length(pid) > 0)
 				return { ok: false, error: '已有升级任务正在执行(pid ' + pid + ')，请等待完成后再试' };
 			let force = request.args?.force === true;
-			let args = force ? ['upgrade', '--force'] : ['upgrade'];
+			let confirmVersion = request.args?.confirm_version === true;
+			let args = ['upgrade'];
+			if (force) push(args, '--force');
+			if (confirmVersion) push(args, '--confirm-version');
 			run_detached(BIN, args);
-			return { ok: true, force: force };
+			return { ok: true, force: force, confirm_version: confirmVersion };
 		}
 	},
-
 	start_download: {
 		// 试运行下载：检查 + 分段传输 + 哈希校验，
 		// 不会写入闪存；与 check/upgrade 一样以 detached 方式运行。
