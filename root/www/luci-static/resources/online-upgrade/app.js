@@ -853,7 +853,7 @@
 		var pill = card.querySelector('.ou-status-pill');
 		if (title) title.textContent = downloadOnlyProgress ? '固件下载与预检' : '固件升级进行中';
 		if (desc) desc.textContent = downloadOnlyProgress
-			? '仅下载固件并完成 SHA256 校验与设备兼容性预检，不会备份配置、刷写闪存或重启'
+			? '仅下载固件并计算 SHA256（有可信校验值时比对）及执行设备兼容性预检，不会备份配置、刷写闪存或重启'
 			: '系统正在安全调度中，请保持路由器电源稳定连接，切勿断电';
 		if (pill) {
 			pill.className = 'ou-status-pill update';
@@ -970,6 +970,10 @@
 			hint('check-result', '当前目标固件未通过适配判定，需用「强制更新」并显式确认后才能继续', 'warn');
 			return;
 		}
+		if (usePreflight && (!downloadPreflight || downloadPreflight.dry_run !== true)) {
+			hint('check-result', '缺少有效的下载预检记录，请先完成固件下载与设备预检', 'warn');
+			return;
+		}
 		if (!isForce && same) {
 			// 同版本不提供普通升级入口，重装只能显式走强制升级
 			hint('check-result', '当前固件与 Release 同版本，普通升级不适用；如需重装请使用「强制升级」', 'warn');
@@ -1011,7 +1015,7 @@
 				// 撞锁失败恢复按钮时也要维持「同版本不摆普通升级入口」的口径
 				showBtn('btn-upgrade', !same);
 				showBtn('btn-force', true);
-				setBusy('btn-upgrade', false, '立即升级');
+				setBusy('btn-upgrade', false, downloadPreflight ? '使用已下载固件升级' : '立即升级');
 				setBusy('btn-force', false, forceLabel());
 				$('card-progress').style.display = 'none';
 				hint('check-result', r.error || '升级未能启动', 'err');
@@ -1242,11 +1246,11 @@
 		downloadPreflight = st && st.result ? st.result : null;
 		var compat = downloadPreflight && downloadPreflight.compatibility;
 		var relation = downloadPreflight && downloadPreflight.relation;
-		var ready = !!(downloadPreflight && downloadPreflight.dry_run === true && compat && compat.level === 'compatible' && (relation === 'series' || relation === 'unknown'));
+		var ready = !!(downloadPreflight && downloadPreflight.dry_run === true && compat && compat.level === 'compatible' && (relation === 'series' || relation === 'unknown' || relation === 'incomparable'));
 		showBtn('btn-upgrade', ready);
 		if (ready) {
 			setBusy('btn-upgrade', false, '使用已下载固件升级');
-			$('btn-upgrade').title = '复用已下载固件；若 Release 资产发生变化将重新下载，并再次执行预检';
+			$('btn-upgrade').title = '优先复用已下载固件；若 Release 资产发生变化才重新下载，并再次执行预检';
 		}
 		var msg = downloadPreflight && downloadPreflight.verified
 			? '固件下载完成，SHA256 与可信校验值一致，设备兼容性预检通过。'
