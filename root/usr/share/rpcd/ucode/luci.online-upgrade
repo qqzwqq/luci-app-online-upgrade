@@ -252,10 +252,16 @@ function busy_pid() {
 	if (head == null)
 		return '';
 	let pid = head[0];
+	// 不能仅凭 /proc/<pid>/cmdline 存在就认定任务仍在运行：
+	// PID 可能已被系统分配给无关进程。优先检查 comm，再用 cmdline 兜底。
+	let comm = readfile('/proc/' + pid + '/comm');
+	if (comm != null && type(comm) == 'string' &&
+	    match(comm, /online-upgrade/) != null)
+		return pid;
 	let alive = readfile('/proc/' + pid + '/cmdline');
-	if (alive == null || type(alive) != 'string')
-		return ''; // 崩溃残留的锁文件，后端会自行回收
-	return pid;
+	if (alive == null || type(alive) != 'string' || length(alive) == 0)
+		return ''; // 进程已退出，Rust 获取锁时会安全回收陈旧锁
+	return match(alive, /online-upgrade/) != null ? pid : '';
 }
 
 const methods = {
@@ -264,12 +270,10 @@ const methods = {
 			let pid = busy_pid();
 			if (length(pid) > 0)
 				return { ok: false, error: '已有任务正在执行(pid ' + pid + ')，请等待完成后再试' };
-			// 「检查更新」同时刷新四套远程状态：先强制刷新 Actions/Releases/
-			// Artifacts/Compat/Network，再执行固件检测，使「远程状态与统一诊断」
-			// 与本次检测同源同刻，而不是各自沿用旧缓存。
-			// 用 ; 而不是 &&：状态刷新失败不得阻断固件检测。
-			run_detached('/bin/sh', ['-c',
-				BIN + ' refresh --force >/dev/null 2>&1; ' + BIN + ' check']);
+			// 普通固件检测只请求必要的 GitHub Releases API。
+			// Actions/Artifacts/兼容性/网络状态使用各自缓存；用户需要时
+			// 可通过「刷新状态」单独刷新，避免每次点检查都消耗多份匿名 API 额度。
+			run_detached(BIN, ['check']);
 			return { ok: true };
 		}
 	},

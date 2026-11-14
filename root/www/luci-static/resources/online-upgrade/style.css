@@ -4286,3 +4286,44 @@ body.dark .ou-container .ou-chip-warn,
   -webkit-text-fill-color: #f1f5f9 !important;
   text-shadow: none !important;
 }
+
+
+/* v2.6.9：由前端根据 LuCI 实际主题状态标记容器，避免主题属性位于
+ * 不同祖先节点时 CSS 选择器失效。标题统一使用高对比度浅色。
+ */
+.ou-container.ou-theme-dark {
+	color-scheme: dark !important;
+	--ou-dark-text: #e5eaf0;
+	--ou-dark-text-strong: #f8fafc;
+	--ou-dark-muted: #c0cad5;
+	--ou-dark-subtle: #a3afbd;
+}
+.ou-container.ou-theme-dark :is(
+	h1, h2, h3, h4, h5, h6, legend,
+	.ou-hero-title, .ou-head-title-row, .ou-head-title-row *,
+	.ou-stat-label, .ou-stat-val, .ou-stat-sub,
+	.ou-st-panel-head, .ou-st-panel-head *,
+	.ou-st-diag-sec-title, .ou-step-text,
+	.ou-evidence-kicker, .ou-fact-label,
+	[class*="title"], [class*="heading"]
+) {
+	color: #f8fafc !important;
+	-webkit-text-fill-color: #f8fafc !important;
+	text-shadow: none !important;
+	opacity: 1 !important;
+}
+.ou-container.ou-theme-dark :is(
+	p, label, small, .ou-head-sub, .ou-hero-desc,
+	.ou-field-help, .ou-stat-sub, .ou-st-lead,
+	.ou-st-fw-reason, .ou-st-key, .ou-time-text
+) {
+	color: #c0cad5 !important;
+	-webkit-text-fill-color: #c0cad5 !important;
+}
+.ou-container.ou-theme-dark :is(
+	.ou-card, .ou-hero-card, .ou-stat-card, .ou-form-card,
+	.ou-config-summary-card, .ou-details, .ou-adv-grid,
+	.ou-st-device, .ou-st-network, .ou-st-panel, .ou-st-fw
+) {
+	color: #e5eaf0;
+}

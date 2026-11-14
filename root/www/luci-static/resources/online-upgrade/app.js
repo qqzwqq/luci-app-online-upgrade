@@ -2602,9 +2602,61 @@
 		});
 	}
 
+
+	/* ---------------- LuCI 暗色主题探测 ----------------
+	 * iStoreOS/LuCI 不同主题版本会把暗色标记放在 html、body 或主题容器。
+	 * 同时检查实际背景色，避免只依赖某一个固定 data 属性。
+	 */
+	function syncDarkTheme() {
+		var container = document.querySelector('.ou-container');
+		if (!container) return;
+		var dark = false;
+		var roots = [document.documentElement, document.body];
+		roots.forEach(function (el) {
+			if (!el) return;
+			var cls = typeof el.className === 'string' ? el.className : '';
+			var dm = (el.getAttribute('data-darkmode') || '').toLowerCase();
+			var theme = (el.getAttribute('data-theme') || '').toLowerCase();
+			if (/(^|\\s)dark(\\s|$)/i.test(cls) ||
+				(dm && dm !== 'false' && dm !== '0' && dm !== 'light') ||
+				theme === 'dark' || el.classList.contains('darkmode'))
+				dark = true;
+		});
+		var node = container;
+		while (!dark && node && node !== document.documentElement) {
+			var style;
+			try { style = window.getComputedStyle(node); } catch (e) { style = null; }
+			if (style) {
+				var bg = style.backgroundColor || '';
+				var m = bg.match(/rgba?\\(\\s*([\\d.]+)[, ]+\\s*([\\d.]+)[, ]+\\s*([\\d.]+)/i);
+				if (m && (style.backgroundImage === 'none' || !style.backgroundImage)) {
+					var r = Number(m[1]), g = Number(m[2]), b = Number(m[3]);
+					var luminance = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+					if (luminance < 0.42) dark = true;
+					if (luminance > 0.72) break;
+				}
+			}
+			node = node.parentElement;
+		}
+		container.classList.toggle('ou-theme-dark', dark);
+	}
+
+	function watchLuCIDarkTheme() {
+		syncDarkTheme();
+		if (!window.MutationObserver) return;
+		var observer = new MutationObserver(syncDarkTheme);
+		[document.documentElement, document.body].forEach(function (el) {
+			if (el) observer.observe(el, {
+				attributes: true,
+				attributeFilter: ['class', 'style', 'data-darkmode', 'data-theme']
+			});
+		});
+	}
+
 	/* ---------------- 初始化 ---------------- */
 
 	function boot() {
+		watchLuCIDarkTheme();
 		$('btn-check').addEventListener('click', runCheck);
 		$('btn-upgrade').addEventListener('click', function () { startUpgrade(false); });
 		$('btn-force').addEventListener('click', function () { startUpgrade(true); });
