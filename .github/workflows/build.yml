@@ -80,6 +80,12 @@ jobs:
         with:
           targets: ${{ matrix.target }}
 
+      # 在宿主机运行回归测试，覆盖版本精度、H69K Rockchip ARMv8
+      # 架构识别等逻辑；不能只编译交叉目标而不执行测试。
+      - name: Run Rust unit tests
+        working-directory: rust
+        run: cargo test --locked
+
       # 只缓存 Cargo registry 与 target，不缓存工具链本身；
       # Cargo.lock 变化时 key 自动失效，首次会回退到完整编译。
       - name: Cache Rust build
