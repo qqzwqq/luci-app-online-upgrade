@@ -4358,3 +4358,146 @@ html body .cbi-map.ou-container.ou-theme-dark .ou-stat-sub {
 	color: #c0cad5 !important;
 	-webkit-text-fill-color: #c0cad5 !important;
 }
+
+
+/* ==========================================================================
+   v2.6.13：暗色模式全组件文字与表面兜底
+   以 JS 标记的 .ou-theme-dark 为唯一入口，不依赖 LuCI 的主题标记位置。
+   覆盖此前遗漏的表格、动态状态、证据项、表单说明、折叠摘要和小标签。
+   ========================================================================== */
+.ou-container.ou-theme-dark {
+	color-scheme: dark !important;
+	color: #e5eaf0 !important;
+	--ou-dark-text: #e5eaf0;
+	--ou-dark-text-strong: #f8fafc;
+	--ou-dark-muted: #cbd5e1;
+	--ou-dark-subtle: #aab6c4;
+}
+.ou-container.ou-theme-dark :is(
+	p, span, strong, em, small, label, li, td, th, dt, dd, summary,
+	legend, a, code, output, .ou-summary-text, .ou-basis-item,
+	.ou-compat-chip, .ou-st-mini, .ou-st-art, .ou-st-fw,
+	.ou-st-row, .ou-task-meta, .ou-task-detail-item,
+	.ou-chunk-head, .ou-chunk-legend, .ou-plugin-asset,
+	.ou-plugin-hint, .ou-convention-note, .ou-dialog-message
+) {
+	color: #e5eaf0 !important;
+	-webkit-text-fill-color: #e5eaf0 !important;
+}
+.ou-container.ou-theme-dark :is(
+	h1, h2, h3, h4, h5, h6, legend,
+	.ou-hero-title, .ou-card-head h3, .ou-stat-val,
+	.ou-reason-val, .ou-reason-text, .ou-evidence-title,
+	.ou-evidence-verdict, .ou-fact-value, .ou-plugin-val,
+	.ou-st-diag-summary, .ou-st-diag-sec-title,
+	.ou-st-panel-head h4, .ou-st-val, .ou-task-detail-item strong
+) {
+	color: #f8fafc !important;
+	-webkit-text-fill-color: #f8fafc !important;
+	text-shadow: none !important;
+	opacity: 1 !important;
+}
+.ou-container.ou-theme-dark :is(
+	.ou-hero-desc, .ou-head-sub, .ou-stat-label, .ou-stat-sub,
+	.ou-field-help, .ou-hint, .hint, .ou-step-text,
+	.ou-evidence-kicker, .ou-fact-label, .ou-evidence-note,
+	.ou-basis-item, .ou-st-key, .ou-st-foot, .ou-st-note,
+	.ou-st-api, .ou-st-empty, .ou-st-more, .ou-st-art-time,
+	.ou-plugin-key, .ou-plugin-asset-sub, .ou-plugin-hint,
+	.ou-plugin-convention-summary, .ou-convention-key,
+	.ou-convention-note, .ou-task-meta, .ou-chunk-head,
+	.ou-chunk-legend
+) {
+	color: #bdc8d5 !important;
+	-webkit-text-fill-color: #bdc8d5 !important;
+}
+/* 暗色背景下保留明确的链接与交互提示色 */
+.ou-container.ou-theme-dark a,
+.ou-container.ou-theme-dark .ou-evidence-summary,
+.ou-container.ou-theme-dark .ou-st-details summary {
+	color: #8fc5ff !important;
+	-webkit-text-fill-color: #8fc5ff !important;
+}
+.ou-container.ou-theme-dark :is(
+	.ou-status-pill.ok, .ou-chip-ok, .ou-compat-chip.ok,
+	.ou-evidence-state.ok, .ou-st-state[data-state*="success"],
+	.ou-st-state[data-state="ok"]
+) { color: #8ee0bd !important; -webkit-text-fill-color: #8ee0bd !important; }
+.ou-container.ou-theme-dark :is(
+	.ou-status-pill.err, .ou-chip-err, .ou-compat-chip.err,
+	.ou-evidence-state.err, .ou-st-state[data-state="error"],
+	.ou-st-state[data-state*="failure"]
+) { color: #ffabb3 !important; -webkit-text-fill-color: #ffabb3 !important; }
+.ou-container.ou-theme-dark :is(
+	.ou-status-pill.update, .ou-chip-warn, .ou-compat-chip.warn,
+	.ou-evidence-state.warn, .ou-evidence-state.busy
+) { color: #f2c77f !important; -webkit-text-fill-color: #f2c77f !important; }
+/* 之前遗漏的浅色小面板全部切换为深灰层级，避免浅色文字落在白底上 */
+.ou-container.ou-theme-dark :is(
+	.ou-hero-card, .ou-feature-item, .ou-icon-badge,
+	.ou-stat-card, .ou-stat-card-full, .ou-stat-icon-wrap,
+	.ou-evidence, .ou-evidence-state, .ou-evidence-link,
+	.ou-fact, .ou-basis-list li, .ou-ext-link, .ou-tag-chip,
+	.ou-notice-box, .ou-step-circle, .ou-progress-track,
+	.ou-details, .ou-summary, .ou-adv-grid, .ou-badge-tune,
+	.ou-form-card, .ou-config-summary-card, .ou-quick-pill,
+	.ou-plugin-row, .ou-plugin-detail, .ou-convention-item,
+	.ou-task-detail-item, .ou-chunk-panel,
+	.ou-st-diag, .ou-st-diag-grid .ou-st-diag-sec,
+	.ou-st-device, .ou-st-network, .ou-st-panel, .ou-st-fw,
+	.ou-st-state, .ou-st-layer
+) {
+	background-color: #303741 !important;
+	background-image: none !important;
+	border-color: #46515e !important;
+	color: #e5eaf0 !important;
+}
+.ou-container.ou-theme-dark :is(
+	.ou-hero-card, .ou-evidence, .ou-plugin-detail,
+	.ou-st-diag, .ou-st-diag-grid .ou-st-diag-sec
+) {
+	background: #292f38 !important;
+}
+.ou-container.ou-theme-dark :is(
+	input, select, textarea, button:not(.ou-btn),
+	.ou-container .cbi-input-text, .ou-container .cbi-input-select
+) {
+	background-color: #20262e !important;
+	color: #f1f5f9 !important;
+	-webkit-text-fill-color: #f1f5f9 !important;
+	border-color: #536171 !important;
+	color-scheme: dark !important;
+}
+.ou-container.ou-theme-dark :is(input, textarea)::placeholder {
+	color: #aab6c4 !important;
+	-webkit-text-fill-color: #aab6c4 !important;
+}
+.ou-container.ou-theme-dark .ou-mobile-toggle,
+.ou-container.ou-theme-dark .ou-plugin-toggle {
+	background: #263d59 !important;
+	color: #b9d9ff !important;
+	-webkit-text-fill-color: #b9d9ff !important;
+	border-color: #456789 !important;
+}
+.ou-container.ou-theme-dark .ou-terminal,
+.ou-container.ou-theme-dark .ou-terminal * {
+	background-color: transparent !important;
+	color: #e5eaf0 !important;
+	-webkit-text-fill-color: currentColor !important;
+}
+.ou-container.ou-theme-dark .ou-terminal {
+	background: #0f172a !important;
+}
+.ou-container.ou-theme-dark .ou-btn-primary,
+.ou-container.ou-theme-dark .ou-btn-success,
+.ou-container.ou-theme-dark .ou-btn-warning {
+	color: #ffffff !important;
+	-webkit-text-fill-color: #ffffff !important;
+}
+.ou-container.ou-theme-dark .ou-btn-default,
+.ou-container.ou-theme-dark .ou-btn-danger {
+	background: #303741 !important;
+	color: #e5eaf0 !important;
+	-webkit-text-fill-color: #e5eaf0 !important;
+	border-color: #536171 !important;
+}
