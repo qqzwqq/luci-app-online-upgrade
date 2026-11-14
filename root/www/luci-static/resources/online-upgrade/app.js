@@ -1528,8 +1528,8 @@
 		// 慢速保护的 0 是有效取值（表示关闭保护或不设宽限期），
 		// 因此不能用 `||` 把它替换成默认值。
 		[['cfg-minspeed', settings.dl_min_speed_kb, '32'],
-		 ['cfg-slowwin', settings.dl_slow_window_sec, '15'],
-		 ['cfg-slowgrace', settings.dl_slow_grace_sec, '10']].forEach(function (f) {
+		 ['cfg-slowwin', settings.dl_slow_window_sec, '30'],
+		 ['cfg-slowgrace', settings.dl_slow_grace_sec, '20']].forEach(function (f) {
 			if ($(f[0])) {
 				$(f[0]).value = (f[1] == null || f[1] === '') ? f[2] : f[1];
 			}

@@ -666,13 +666,13 @@
 				</div>
 				<div class="ou-form-field">
 					<label for="cfg-slowwin">慢速判定窗口 (秒)</label>
-					<input type="number" id="cfg-slowwin" class="ou-input-text" min="3" max="300" step="1" placeholder="15">
-					<p class="ou-field-help">速度连续低于阈值达到该时长才判定为异常，默认 15 秒</p>
+					<input type="number" id="cfg-slowwin" class="ou-input-text" min="3" max="300" step="1" placeholder="30">
+					<p class="ou-field-help">按最近 30 秒滚动平均值判定，短暂速度波动不会清空窗口，默认 30 秒</p>
 				</div>
 				<div class="ou-form-field">
 					<label for="cfg-slowgrace">启动宽限期 (秒)</label>
-					<input type="number" id="cfg-slowgrace" class="ou-input-text" min="0" max="300" step="1" placeholder="10">
-					<p class="ou-field-help">TLS 握手与 TCP 慢启动期间不做慢速判定，默认 10 秒</p>
+					<input type="number" id="cfg-slowgrace" class="ou-input-text" min="0" max="300" step="1" placeholder="20">
+					<p class="ou-field-help">TLS 握手与 TCP 慢启动期间不做慢速判定，默认 20 秒</p>
 				</div>
 			</div>
 		</details>
