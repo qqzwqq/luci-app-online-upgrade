@@ -787,11 +787,15 @@ async fn fetch_range(
             resp.status().as_u16()
         )));
     }
+    // create(true) 用于防御线路切换/异常清理期间文件被移除的情况。
+    // 不使用 truncate：多个 worker 会并发写入不同 Range，截断会破坏其他分块。
     let mut file = File::options()
         .write(true)
+        .create(true)
+        .truncate(false)
         .open(out)
         .await
-        .map_err(|e| DownloadError::Other(format!("打开文件失败: {e}")))?;
+        .map_err(|e| DownloadError::Other(format!("打开或创建分段文件失败: {e}")))?;
     file.seek(SeekFrom::Start(start))
         .await
         .map_err(|e| DownloadError::Other(format!("seek 失败: {e}")))?;
