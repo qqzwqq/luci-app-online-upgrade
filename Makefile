@@ -119,7 +119,7 @@ define Package/luci-app-online-upgrade/postinst
 			""|https://github.com/qqzwqq/H69K-iStoreOS|https://github.com/qqzwqq/H69K-iStoreOS/|https://github.com/qqzwqq/H69K-iStoreOS.git|https://github.com/qqzwqq/H69K-iStoreOS/tree/*|https://github.com/qqzwqq/H69K-iStoreOS.git/tree/*)
 				REPO_URL_OK=1 ;;
 		esac
-		if { [ -z "$REPO" ] || [ "$REPO" = "qqzwqq/H69K-iStoreOS" ]; } && [ "$REPO_URL_OK" -eq 1 ]; then
+		if { [ -z "$REPO" ] || [ "$REPO" = "qqzwqq/H69K-iStoreOS" ]; } && [ "$$REPO_URL_OK" -eq 1 ]; then
 			uci -q batch <<-'EOF'
 			set online-upgrade.settings.enabled='1'
 			set online-upgrade.settings.repo='qqzwqq/H69K-iStoreOS'
