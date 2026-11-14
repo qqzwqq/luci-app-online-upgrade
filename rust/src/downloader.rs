@@ -53,8 +53,13 @@ impl DownloadError {
     }
 
     /// 是否可以尝试其他下载线路。
+    /// 慢速保护只终止当前线路；用户取消仍然终止整个任务。
     pub fn is_route_failure(&self) -> bool {
-        matches!(self, DownloadError::Other(_))
+        matches!(
+            self,
+            DownloadError::Other(_)
+                | DownloadError::Stopped(StopReason::Slow { .. })
+        )
     }
 }
 
@@ -1070,7 +1075,7 @@ mod tests {
             min_bps: 32768,
             window_secs: 15,
         });
-        assert!(!slow.is_route_failure());
+        assert!(slow.is_route_failure());
         assert_eq!(slow.message(), "太慢");
         let net = DownloadError::Other("HTTP 504".into());
         assert!(net.is_route_failure());
