@@ -465,7 +465,7 @@ fn firmware_version(file_name: &str, tag: &str) -> (String, &'static str) {
         (Some(file), Some(release))
             if file.nums.len() == 2
                 && release.nums.len() > 2
-                && file.nums == release.nums[..2] =>
+                && file.nums.as_slice() == &release.nums[..2] =>
         {
             (release.as_display(), "tag")
         }
