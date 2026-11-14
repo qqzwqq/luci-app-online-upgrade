@@ -107,19 +107,19 @@ define Package/luci-app-online-upgrade/postinst
 
 	# H69K 专用默认配置：只在本机确认为 HINLINK OPC-H69K，且仓库
 	# 未自定义（空值或本插件仓库）时应用；不会覆盖其他设备/仓库配置。
-	BOARD_ID="$(cat /tmp/sysinfo/board_name 2>/dev/null)"
-	if [ "$BOARD_ID" != "hinlink,opc-h69k" ] && command -v jsonfilter >/dev/null 2>&1; then
-		BOARD_ID="$(jsonfilter -i /etc/board.json -e '@.model.id' 2>/dev/null)"
+	BOARD_ID="$$(cat /tmp/sysinfo/board_name 2>/dev/null)"
+	if [ "$$BOARD_ID" != "hinlink,opc-h69k" ] && command -v jsonfilter >/dev/null 2>&1; then
+		BOARD_ID="$$(jsonfilter -i /etc/board.json -e '@.model.id' 2>/dev/null)"
 	fi
-	if [ "$BOARD_ID" = "hinlink,opc-h69k" ]; then
-		REPO="$(uci -q get online-upgrade.settings.repo)"
-		REPO_URL="$(uci -q get online-upgrade.settings.repo_url)"
-		if { [ -z "$REPO" ] || [ "$REPO" = "qqzwqq/H69K-iStoreOS" ]; } && [ -z "$REPO_URL" ]; then
-			uci -q batch <<'EOF'
+	if [ "$$BOARD_ID" = "hinlink,opc-h69k" ]; then
+		REPO="$$(uci -q get online-upgrade.settings.repo)"
+		REPO_URL="$$(uci -q get online-upgrade.settings.repo_url)"
+		if { [ -z "$$REPO" ] || [ "$$REPO" = "qqzwqq/H69K-iStoreOS" ]; } && [ -z "$$REPO_URL" ]; then
+			uci -q batch <<-'EOF'
 			set online-upgrade.settings.enabled='1'
 			set online-upgrade.settings.repo='qqzwqq/H69K-iStoreOS'
-			set online-upgrade.settings.tag='latest@^h69k-unified-25\\.12-'
-			set online-upgrade.settings.firmware_pattern='^H69K-iStoreOS-25\\.12-istoreos-rockchip-armv8-hinlink_opc-h6xk-squashfs-sysupgrade\\.img\\.gz$'
+			set online-upgrade.settings.tag='latest@^h69k-unified-25\.12-'
+			set online-upgrade.settings.firmware_pattern='^H69K-iStoreOS-25\.12-istoreos-rockchip-armv8-hinlink_opc-h6xk-squashfs-sysupgrade\.img\.gz$$'
 			set online-upgrade.settings.build_branch='main'
 			set online-upgrade.settings.workflow_filter=''
 			set online-upgrade.settings.keep_config='1'
