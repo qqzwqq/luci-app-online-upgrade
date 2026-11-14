@@ -2633,7 +2633,7 @@
 					var r = Number(m[1]), g = Number(m[2]), b = Number(m[3]);
 					var luminance = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
 					if (luminance < 0.42) dark = true;
-					if (luminance > 0.72) break;
+					// 继续向上检查；LuCI 某些主题会在中间容器上保留透明/浅色背景。
 				}
 			}
 			node = node.parentElement;

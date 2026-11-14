@@ -4300,7 +4300,7 @@ body.dark .ou-container .ou-chip-warn,
 }
 .ou-container.ou-theme-dark :is(
 	h1, h2, h3, h4, h5, h6, legend,
-	.ou-hero-title, .ou-head-title-row, .ou-head-title-row *,
+	.ou-hero-title, .ou-head-title-row,
 	.ou-stat-label, .ou-stat-val, .ou-stat-sub,
 	.ou-st-panel-head, .ou-st-panel-head *,
 	.ou-st-diag-sec-title, .ou-step-text,

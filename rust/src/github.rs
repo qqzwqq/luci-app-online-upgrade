@@ -112,30 +112,40 @@ async fn api_get(
     client: &reqwest::Client,
     url: &str,
     token: Option<&str>,
-) -> Result<(u16, String), String> {
+) -> Result<(u16, String, Option<String>), String> {
     let mut req = client.get(url).timeout(Duration::from_secs(30));
     if let Some(t) = token {
+        // 令牌只允许发送给 GitHub 官方 API 主机，绝不交给第三方镜像。
         if host_of(url).eq_ignore_ascii_case("api.github.com") {
             req = req.header("Authorization", format!("Bearer {t}"));
         }
     }
     let resp = req.send().await.map_err(|e| e.to_string())?;
     let code = resp.status().as_u16();
+    let rate_info = if code == 403 {
+        let remaining = resp.headers().get("x-ratelimit-remaining")
+            .and_then(|v| v.to_str().ok()).unwrap_or("未知");
+        let reset = resp.headers().get("x-ratelimit-reset")
+            .and_then(|v| v.to_str().ok()).unwrap_or("未知");
+        Some(format!("剩余请求额度：{}；限额重置 Unix 时间戳：{}", remaining, reset))
+    } else {
+        None
+    };
     let body = resp.text().await.map_err(|e| e.to_string())?;
-    Ok((code, body))
+    Ok((code, body, rate_info))
 }
 
 /// 按完整容错链路拉取 GitHub API URL：
-/// 直连 → 连接失败时回退代理前缀 → 403 限流重试。
+/// 直连 → 连接失败时回退代理前缀。403 不盲目重试，直接读取限额响应头。
 pub(crate) async fn api_fetch(
     client: &reqwest::Client,
     url: &str,
     cfg: &Cfg,
 ) -> Result<(u16, String), String> {
-    let (mut code, mut body) = match api_get(client, url, cfg.token.as_deref()).await {
+    let (code, body, rate_info) = match api_get(client, url, cfg.token.as_deref()).await {
         Ok(x) => x,
         Err(e) => {
-            // TLS/DNS/连接层失败 → 走代理重试（不携带令牌）
+            // TLS/DNS/连接层失败 → 走代理重试；第三方代理不会收到令牌。
             if cfg.proxy.is_empty() {
                 return Err(format!("直连失败且未配置可用代理: {e}"));
             }
@@ -148,18 +158,15 @@ pub(crate) async fn api_fetch(
         }
     };
     if code == 403 {
-        status::set("checking", 30, "GitHub API 限速,15 秒后重试...");
-        tokio::time::sleep(Duration::from_secs(15)).await;
-        match api_get(client, url, cfg.token.as_deref()).await {
-            Ok(x) => {
-                code = x.0;
-                body = x.1;
-            }
-            Err(e) => return Err(format!("API 请求失败: {e}")),
+        let is_rate_limited = body.to_ascii_lowercase().contains("rate limit")
+            || rate_info.as_deref().map(|s| s.contains("剩余请求额度：0")).unwrap_or(false);
+        if is_rate_limited {
+            return Err(format!(
+                "GitHub API 已触发限额（HTTP 403）；{}。请等额度重置后再检测，或配置 GitHub Token（令牌只发送给 api.github.com）",
+                rate_info.unwrap_or_else(|| "GitHub 未提供限额重置信息".into())
+            ));
         }
-    }
-    if code == 403 {
-        return Err("GitHub API 限速(HTTP 403),请等待 1 小时或配置 github_token".into());
+        return Err("GitHub API 返回 HTTP 403：请求被拒绝，请检查仓库权限或访问策略".into());
     }
     if code != 200 {
         return Err(format!("GitHub API 返回 HTTP {code}"));
