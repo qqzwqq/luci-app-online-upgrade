@@ -526,6 +526,15 @@ fn asset_arch(fname_norm: &str) -> (Arch, Vec<String>) {
     ];
 
     let mut evidence = Vec::new();
+
+    // OpenWrt 的 rockchip/armv8 target 明确使用 AArch64；
+    // HINLINK OPC-H69K 的固件文件名采用 rockchip-armv8，而非 aarch64。
+    // 仅识别这个完整平台标记，不能把任意 armv8 字样一概当作 64 位。
+    if fname_norm.contains("rockchip-armv8") {
+        evidence.push("rockchip/armv8".to_string());
+        return (Arch::Aarch64, evidence);
+    }
+
     let mut found: Option<Arch> = None;
     for (arch, list) in [
         (Arch::Aarch64, AARCH64),
@@ -1102,6 +1111,34 @@ mod tests {
         assert!(!r.requires_confirm);
         assert!(r.basis.iter().any(|b| b.contains("未声明架构")));
         assert!(r.reason.contains("配置规则"));
+    }
+
+    #[test]
+    fn hinlink_opc_h69k_rockchip_armv8_is_recognized_as_aarch64() {
+        let device = DeviceProfile {
+            model: "HINLINK OPC-H69K Board".into(),
+            board_name: "hinlink,opc-h69k".into(),
+            board_id: "hinlink,opc-h69k".into(),
+            target: "rockchip/armv8".into(),
+            arch: "aarch64_generic".into(),
+            pkg_arch: "aarch64_generic".into(),
+            uname_arch: "aarch64".into(),
+            release: "25.12.6".into(),
+            revision: "r0-111a980".into(),
+            distro: "iStoreOS".into(),
+        };
+        let name = "H69K-iStoreOS-25.12-istoreos-rockchip-armv8-hinlink_opc-h6xk-squashfs-sysupgrade.img.gz";
+        let r = evaluate_with_rule(
+            &device,
+            name,
+            "^H69K-iStoreOS-25[.]12-istoreos-rockchip-armv8-hinlink_opc-h6xk-squashfs-sysupgrade[.]img[.]gz$",
+        );
+        assert_eq!(r.arch_check, "ok");
+        assert_eq!(r.device_arch, "aarch64");
+        assert_eq!(r.asset_arch, "aarch64");
+        assert_eq!(r.model_check, "rule");
+        assert!(r.can_upgrade);
+        assert!(r.basis.iter().any(|b| b.contains("rockchip/armv8")));
     }
 
     #[test]
