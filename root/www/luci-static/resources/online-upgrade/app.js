@@ -2611,29 +2611,32 @@
 		var container = document.querySelector('.ou-container');
 		if (!container) return;
 		var dark = false;
-		var roots = [document.documentElement, document.body];
-		roots.forEach(function (el) {
-			if (!el) return;
-			var cls = typeof el.className === 'string' ? el.className : '';
-			var dm = (el.getAttribute('data-darkmode') || '').toLowerCase();
-			var theme = (el.getAttribute('data-theme') || '').toLowerCase();
-			if (/(^|\s)dark(\s|$)/i.test(cls) ||
-				(dm && dm !== 'false' && dm !== '0' && dm !== 'light') ||
-				theme === 'dark' || el.classList.contains('darkmode'))
-				dark = true;
-		});
 		var node = container;
-		while (!dark && node && node !== document.documentElement) {
+		// LuCI/iStoreOS 主题标记不一定挂在 html/body，也可能位于
+		// #maincontent、.main 或主题布局容器；逐级检查完整祖先链。
+		while (node && node.nodeType === 1) {
+			var cls = typeof node.className === 'string' ? node.className : '';
+			var dm = (node.getAttribute('data-darkmode') || '').toLowerCase();
+			var theme = (node.getAttribute('data-theme') || '').toLowerCase();
+			if (/(^|\\s)dark(\\s|$)/i.test(cls) ||
+				(dm && dm !== 'false' && dm !== '0' && dm !== 'light') ||
+				theme === 'dark' || (node.classList && node.classList.contains('darkmode'))) {
+				dark = true;
+				break;
+			}
 			var style;
 			try { style = window.getComputedStyle(node); } catch (e) { style = null; }
 			if (style) {
 				var bg = style.backgroundColor || '';
-				var m = bg.match(/rgba?\(\s*([\d.]+)[, ]+\s*([\d.]+)[, ]+\s*([\d.]+)/i);
+				var m = bg.match(/rgba?\\(\\s*([\\d.]+)[, ]+\\s*([\\d.]+)[, ]+\\s*([\\d.]+)/i);
 				if (m && (style.backgroundImage === 'none' || !style.backgroundImage)) {
+					var alpha = m[4] === undefined ? 1 : Number(m[4]);
 					var r = Number(m[1]), g = Number(m[2]), b = Number(m[3]);
 					var luminance = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
-					if (luminance < 0.42) dark = true;
-					// 继续向上检查；LuCI 某些主题会在中间容器上保留透明/浅色背景。
+					if (alpha > 0.05 && luminance < 0.42) {
+						dark = true;
+						break;
+					}
 				}
 			}
 			node = node.parentElement;
@@ -2645,11 +2648,11 @@
 		syncDarkTheme();
 		if (!window.MutationObserver) return;
 		var observer = new MutationObserver(syncDarkTheme);
-		[document.documentElement, document.body].forEach(function (el) {
-			if (el) observer.observe(el, {
-				attributes: true,
-				attributeFilter: ['class', 'style', 'data-darkmode', 'data-theme']
-			});
+		// 监听布局容器上的主题属性变更，兼容主题切换时只修改中间节点的情况。
+		observer.observe(document.documentElement, {
+			attributes: true,
+			attributeFilter: ['class', 'style', 'data-darkmode', 'data-theme'],
+			subtree: true
 		});
 	}
 
