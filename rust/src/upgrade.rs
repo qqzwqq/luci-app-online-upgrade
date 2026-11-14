@@ -350,6 +350,19 @@ async fn fetch_firmware(
         match downloader::download(client, url, out, report.clone(), control).await {
             Ok(d) => return Ok(d),
             Err(e) => {
+                if matches!(
+                    &e,
+                    DownloadError::Stopped(StopReason::Slow { .. })
+                ) {
+                    // 慢速监控已停止当前线路的 worker；重新开放控制通道，
+                    // 让下一条备用线路可以启动。用户取消不会进入此分支。
+                    if control.tx().send(RunState::Running).is_err() {
+                        return Err(DownloadError::Other(
+                            "下载控制通道已关闭，无法切换备用线路".to_string(),
+                        ));
+                    }
+                    logline!("[download] 当前线路触发低速保护，准备切换下一条备用线路");
+                }
                 if !e.is_route_failure() {
                     return Err(e);
                 }
