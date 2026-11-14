@@ -338,37 +338,42 @@ async fn wait_running(state: &mut watch::Receiver<RunState>) -> Result<(), Downl
     }
 }
 
-/// 慢速保护使用的纯滑动窗口统计器。与异步监控逻辑分离，
-/// 使判定规则无需计时器即可做单元测试。
+/// 慢速保护使用真正的滚动窗口：每秒吞吐量都进入窗口，
+/// 短暂恢复不会清空此前的低速样本，避免网络抖动让判定永远重新计时。
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 struct SlowTracker {
-    low_secs: u64,
-    low_bytes: u64,
+    samples: VecDeque<u64>,
+    bytes: u64,
 }
 
 impl SlowTracker {
-    /// 输入一秒的吞吐量。当吞吐量在整个观察窗口内持续低于下限时，
-    /// 返回 `(avg_bps, low_secs)`。
+    /// 输入一秒的吞吐量。窗口填满后按窗口平均值判断，
+    /// 返回 `(avg_bps, window_secs)`。
     fn observe(&mut self, bps: u64, policy: &SlowPolicy, in_grace: bool) -> Option<(u64, u64)> {
         if in_grace || !policy.enabled() {
             self.reset();
             return None;
         }
-        if bps < policy.min_bps {
-            self.low_secs = self.low_secs.saturating_add(1);
-            self.low_bytes = self.low_bytes.saturating_add(bps);
-            if self.low_secs >= policy.window_secs {
-                return Some((self.low_bytes / self.low_secs, self.low_secs));
+        self.samples.push_back(bps);
+        self.bytes = self.bytes.saturating_add(bps);
+        while self.samples.len() as u64 > policy.window_secs {
+            if let Some(old) = self.samples.pop_front() {
+                self.bytes = self.bytes.saturating_sub(old);
             }
-        } else {
-            self.reset();
+        }
+        if self.samples.len() as u64 >= policy.window_secs {
+            let secs = self.samples.len() as u64;
+            let avg = self.bytes / secs;
+            if avg < policy.min_bps {
+                return Some((avg, secs));
+            }
         }
         None
     }
 
     fn reset(&mut self) {
-        self.low_secs = 0;
-        self.low_bytes = 0;
+        self.samples.clear();
+        self.bytes = 0;
     }
 }
 
@@ -1027,14 +1032,19 @@ mod tests {
     }
 
     #[test]
-    fn slow_tracker_resets_on_recovery() {
+    fn slow_tracker_uses_rolling_average_across_recovery() {
         let p = SlowPolicy::new(32, 5, 0);
         let mut t = SlowTracker::default();
         t.observe(100, &p, false);
         t.observe(100, &p, false);
-        t.observe(32 * 1024 * 1024, &p, false); // fast second resets
-        assert_eq!(t, SlowTracker::default());
-        assert!(t.observe(100, &p, false).is_none());
+        t.observe(32 * 1024 * 1024, &p, false); // 单秒恢复保留在滚动窗口中
+        assert_eq!(t.samples.len(), 3);
+        for _ in 0..4 {
+            assert!(t.observe(100, &p, false).is_none());
+        }
+        let (avg, secs) = t.observe(100, &p, false).unwrap();
+        assert_eq!(avg, 100);
+        assert_eq!(secs, 5);
     }
 
     #[test]

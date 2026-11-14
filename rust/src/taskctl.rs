@@ -139,8 +139,8 @@ impl SlowPolicy {
     /// 从 `online-upgrade.settings.dl_*` 加载，并使用合理默认值。
     pub fn load() -> SlowPolicy {
         let kb = uci_u32("dl_min_speed_kb", 32, 0, 10240);
-        let win = uci_u32("dl_slow_window_sec", 15, 3, 300);
-        let grace = uci_u32("dl_slow_grace_sec", 10, 0, 300);
+        let win = uci_u32("dl_slow_window_sec", 30, 3, 300);
+        let grace = uci_u32("dl_slow_grace_sec", 20, 0, 300);
         SlowPolicy::new(kb as u64, win as u64, grace as u64)
     }
 
@@ -856,9 +856,9 @@ mod tests {
 
     #[test]
     fn slow_policy_clamps_and_disables() {
-        let p = SlowPolicy::new(32, 15, 10);
+        let p = SlowPolicy::new(32, 30, 20);
         assert_eq!(p.min_bps, 32 * 1024);
-        assert_eq!(p.window_secs, 15);
+        assert_eq!(p.window_secs, 30);
         assert!(p.enabled());
         assert!(!SlowPolicy::new(0, 1, 0).enabled());
         assert_eq!(SlowPolicy::new(1, 1, 999).window_secs, 3);

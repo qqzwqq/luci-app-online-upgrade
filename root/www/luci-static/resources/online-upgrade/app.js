@@ -838,10 +838,53 @@
 		failed: '操作失败'
 	};
 
+	var downloadOnlyProgress = false;
+
+	function setProgressMode(downloadOnly) {
+		downloadOnlyProgress = downloadOnly === true;
+		var card = $('card-progress');
+		if (!card) return;
+		var title = card.querySelector('.ou-head-title-row h3');
+		var desc = card.querySelector('.ou-head-sub');
+		var pill = card.querySelector('.ou-status-pill');
+		if (title) title.textContent = downloadOnlyProgress ? '固件下载与预检' : '固件升级进行中';
+		if (desc) desc.textContent = downloadOnlyProgress
+			? '仅下载固件并完成 SHA256 校验与设备兼容性预检，不会备份配置、刷写闪存或重启'
+			: '系统正在安全调度中，请保持路由器电源稳定连接，切勿断电';
+		if (pill) {
+			pill.className = 'ou-status-pill update';
+			pill.innerHTML = '<span class="ou-dot update"></span> ' + (downloadOnlyProgress ? '下载中' : '执行中');
+		}
+		var labels = ['step-env', 'step-dl', 'step-backup', 'step-flash'];
+		var names = downloadOnlyProgress
+			? ['环境检查', '分段下载', 'SHA256 校验', '设备预检']
+			: ['环境预检', '分段下载', '配置备份', '刷写重启'];
+		labels.forEach(function (id, i) {
+			var node = $(id);
+			var label = node && node.querySelector('.ou-step-text');
+			if (label) label.textContent = names[i];
+		});
+	}
+
 	function updatePipeline(stage) {
 		var sEnv = $('step-env'), sDl = $('step-dl'), sBackup = $('step-backup'), sFlash = $('step-flash');
 		if (!sEnv || !sDl || !sBackup || !sFlash) return;
 		[sEnv, sDl, sBackup, sFlash].forEach(function (el) { el.className = 'ou-step-node'; });
+		if (downloadOnlyProgress) {
+			if (stage === 'checking' || stage === 'check_done') {
+				sEnv.className = 'ou-step-node active';
+			} else if (stage === 'downloading') {
+				sEnv.className = 'ou-step-node done';
+				sDl.className = 'ou-step-node active';
+			} else if (stage === 'verifying') {
+				sEnv.className = 'ou-step-node done';
+				sDl.className = 'ou-step-node done';
+				sBackup.className = 'ou-step-node active';
+			} else if (stage === 'downloaded') {
+				[sEnv, sDl, sBackup, sFlash].forEach(function (el) { el.className = 'ou-step-node done'; });
+			}
+			return;
+		}
 		if (stage === 'checking' || stage === 'check_done') {
 			sEnv.className = 'ou-step-node active';
 		} else if (stage === 'downloading') {
@@ -869,6 +912,7 @@
 	}
 
 	function pollUpgrade() {
+		setProgressMode(false);
 		stopPoll();
 		var skipped = 0;
 		var ticks = 0;
@@ -1184,21 +1228,75 @@
 		});
 	}
 
+	function pollDownload() {
+		stopPoll();
+		var skipped = 0;
+		var ticks = 0;
+		function tick() {
+			Promise.all([ubus('get_status'), ubus('get_log')]).then(function (rs) {
+				var st = rs[0], lg = rs[1];
+				if (pollFilter) {
+					if (!isFreshRun(st)) {
+						if (++skipped > 20) {
+							stopPoll();
+							setBusy('btn-start-download', false, '开始下载');
+							hint('task-hint', '未读取到本次下载任务状态，请查看运行日志', 'err');
+						}
+						return;
+					}
+					pollFilter = false;
+				}
+				if (lg && lg.log) renderLog(lg.log);
+				renderProgress(st);
+				ticks++;
+				if (ticks % 3 === 0) refreshTasks();
+				if (st.stage === 'downloaded') {
+					stopPoll();
+					setBusy('btn-start-download', false, '开始下载');
+					var card = $('card-progress');
+					var pill = card && card.querySelector('.ou-status-pill');
+					if (pill) {
+						pill.className = 'ou-status-pill ok';
+						pill.innerHTML = '<span class="ou-dot ok"></span> 已完成';
+					}
+					hint('task-hint', ' 固件已下载并完成预检；未执行刷写或重启', 'ok');
+					refreshTasks();
+				} else if (st.stage === 'failed' || st.stage === 'check_failed') {
+					stopPoll();
+					setBusy('btn-start-download', false, '开始下载');
+					var pill = $('card-progress') && $('card-progress').querySelector('.ou-status-pill');
+					if (pill) {
+						pill.className = 'ou-status-pill err';
+						pill.innerHTML = '<span class="ou-dot err"></span> 已停止';
+					}
+					hint('task-hint', ' 下载/预检失败：' + (st.error || st.msg || '未知错误'), 'err');
+					hint('check-result', '下载与预检未完成：' + (st.error || st.msg || '未知错误'), 'err');
+					refreshTasks();
+				}
+			}).catch(function () { /* keep polling while the router is reachable */ });
+		}
+		tick();
+		pollTimer = setInterval(tick, 1000);
+	}
+
 	function startDownload() {
 		setBusy('btn-start-download', true, '启动中...');
+		setProgressMode(true);
 		snapshotStatus().then(function () {
 			pollFilter = true;
 			return ubus('start_download');
 		}).then(function (r) {
 			if (r && r.ok === false) {
+				setBusy('btn-start-download', false, '开始下载');
 				hint('task-hint', ' ' + (r.error || '下载未能启动'), 'err');
 				return refreshTasks();
 			}
-			hint('task-hint', ' 下载任务已启动', 'ok');
+			hint('task-hint', ' 下载与预检任务已启动', 'ok');
 			$('card-progress').style.display = '';
-			pollUpgrade();
+			pollDownload();
 			return refreshTasks();
 		}).catch(function (e) {
+			setBusy('btn-start-download', false, '开始下载');
 			hint('task-hint', ' 启动下载失败: ' + e.message, 'err');
 			return refreshTasks();
 		});
