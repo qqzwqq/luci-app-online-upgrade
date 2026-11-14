@@ -8,7 +8,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=luci-app-online-upgrade
 PKG_VERSION:=2.6.5
-PKG_RELEASE:=1
+PKG_RELEASE:=2
 
 PKG_MAINTAINER:=gooyjq <gooyjq@users.noreply.github.com>
 PKG_LICENSE:=GPL-2.0-only
@@ -104,6 +104,38 @@ define Package/luci-app-online-upgrade/postinst
 	# ucode 版 LuCI（26.x）：不再提供 /lib/functions/luci.sh 和 luci-reload，
 	# 菜单/模板或前端资源变更后让调度器与模块缓存失效即可。
 	rm -rf /tmp/luci-indexcache* /tmp/luci-modulecache*
+
+	# H69K 专用默认配置：只在本机确认为 HINLINK OPC-H69K，且仓库
+	# 未自定义（空值或本插件仓库）时应用；不会覆盖其他设备/仓库配置。
+	BOARD_ID="$(cat /tmp/sysinfo/board_name 2>/dev/null)"
+	if [ "$BOARD_ID" != "hinlink,opc-h69k" ] && command -v jsonfilter >/dev/null 2>&1; then
+		BOARD_ID="$(jsonfilter -i /etc/board.json -e '@.model.id' 2>/dev/null)"
+	fi
+	if [ "$BOARD_ID" = "hinlink,opc-h69k" ]; then
+		REPO="$(uci -q get online-upgrade.settings.repo)"
+		REPO_URL="$(uci -q get online-upgrade.settings.repo_url)"
+		if { [ -z "$REPO" ] || [ "$REPO" = "qqzwqq/H69K-iStoreOS" ]; } && [ -z "$REPO_URL" ]; then
+			uci -q batch <<'EOF'
+			set online-upgrade.settings.enabled='1'
+			set online-upgrade.settings.repo='qqzwqq/H69K-iStoreOS'
+			set online-upgrade.settings.tag='latest@^h69k-unified-25\\.12-'
+			set online-upgrade.settings.firmware_pattern='^H69K-iStoreOS-25\\.12-istoreos-rockchip-armv8-hinlink_opc-h6xk-squashfs-sysupgrade\\.img\\.gz$'
+			set online-upgrade.settings.build_branch='main'
+			set online-upgrade.settings.workflow_filter=''
+			set online-upgrade.settings.keep_config='1'
+			set online-upgrade.settings.min_size_mb='15'
+			set online-upgrade.settings.dl_workers='4'
+			set online-upgrade.settings.dl_chunk_mb='4'
+			set online-upgrade.settings.dl_stall_sec='30'
+			set online-upgrade.settings.dl_retries='3'
+			set online-upgrade.settings.dl_min_speed_kb='32'
+			set online-upgrade.settings.dl_slow_window_sec='15'
+			set online-upgrade.settings.dl_slow_grace_sec='10'
+			commit online-upgrade
+			EOF
+			echo "H69K 25.12 固件追踪配置已应用" >>/tmp/online-upgrade-postinst.log
+		fi
+	fi
 
 	# rpcd 在启动时扫描 /usr/share/rpcd/ucode/ 并缓存 ACL 白名单，
 	# 升级安装后需重载才能让新增 RPC 生效（否则报 Access denied -32002）。
