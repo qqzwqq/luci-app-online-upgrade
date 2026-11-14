@@ -2,6 +2,15 @@
 
 本文件遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 格式，版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [2.6.6] - 2026-11-14
+
+### Fixed
+
+- **修复 H69K 25.12 版本误判降级**：Release 只标注 `25.12` 系列而本机为 `25.12.6` 时，不再把两段系列号补零成 `25.12.0`；改为明确提示版本精度不足，停止自动升级判定。
+- **识别 H69K Rockchip ARMv8 固件架构**：将明确的 `rockchip-armv8` 平台标记识别为 AArch64，避免把 H69K 资产错误标为“架构未声明”。
+- **统一固件探测与正式检测规则**：查询当前配置的固件仓库时，固件列表探测同步应用 `firmware_pattern`；其他仓库不套用该规则，避免检测结果与候选列表不一致。
+- 增加 H69K Rockchip ARMv8 架构识别、同系列短版本不可比较及跨系列比较的回归测试。
+
 ## [Unreleased]
 
 ### Changed
