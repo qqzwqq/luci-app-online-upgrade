@@ -301,6 +301,29 @@ fn decide(
     local_ver: Option<&crate::version::Version>,
 ) -> Decision {
     let weak = local.confidence != crate::localver::Confidence::Strong;
+
+    // 两段版本（如 25.12）在部分自用固件仓库中表示“系列/分支”，
+    // 并不等价于补零后的 25.12.0。若本机是同系列的完整版本
+    // （如 25.12.6），不能据此误判为降级，也不能猜测云端补丁号。
+    if let (Some(current), Some(candidate)) = (local_ver, target) {
+        if candidate.nums.len() == 2
+            && current.nums.len() > 2
+            && current.nums[..2] == candidate.nums[..]
+        {
+            return Decision {
+                has_update: false,
+                reason: format!(
+                    "云端只声明 {} 系列，未提供完整补丁版本；本机为 {}。版本无法可靠比较，已停止自动升级判定。请在 Release 标签或固件文件名中提供完整版本号（例如 25.12.7）后再检测",
+                    candidate.as_display(),
+                    current.as_display()
+                ),
+                relation: "unknown",
+                state: "incomparable",
+                confirm_required: true,
+            };
+        }
+    }
+
     match (local_ver, target) {
         (Some(c), Some(t)) => match c.compare(t) {
             std::cmp::Ordering::Less => Decision {
@@ -837,7 +860,7 @@ pub async fn probe(client: &reqwest::Client, repo: &str, tag: &str) -> Value {
             tag.to_string()
         },
         proxy: cur.proxy,
-        pattern: String::new(),
+        pattern: if repo == cur.repo { cur.pattern.clone() } else { String::new() },
         token: cur.token,
     };
     if cfg.repo.is_empty() || !cfg.repo.contains('/') {
@@ -891,6 +914,19 @@ pub async fn probe(client: &reqwest::Client, repo: &str, tag: &str) -> Value {
     };
 
     let device = crate::compat::DeviceProfile::current();
+    let rule_re = if cfg.pattern.is_empty() {
+        None
+    } else {
+        match Regex::new(&cfg.pattern) {
+            Ok(re) => Some(re),
+            Err(e) => {
+                return Value::Obj(vec![
+                    ("ok".into(), Value::Bool(false)),
+                    ("error".into(), Value::str(&format!("firmware_pattern 正则无效: {e}"))),
+                ]);
+            }
+        }
+    };
     for (tag_name, release) in release_candidates(&parsed, use_latest, &cfg.tag, &tag_filter) {
         if let Some(assets) = release.get("assets").and_then(|a| a.as_arr()) {
             if assets.is_empty() {
@@ -902,7 +938,14 @@ pub async fn probe(client: &reqwest::Client, repo: &str, tag: &str) -> Value {
                 .map(|a| {
                     let name = asset_name(a);
                     let size = asset_size(a);
-                    let compat = crate::compat::evaluate_asset(&device, &name);
+                    // 固件列表与正式检查共用同一条匹配规则：
+                    // 配置仓库中的文件名命中 firmware_pattern 时，显示规则匹配依据；
+                    // 其他文件仍走自动识别，避免规则误套到别的仓库/文件。
+                    let compat = if rule_re.as_ref().map(|re| re.is_match(&name)).unwrap_or(false) {
+                        crate::compat::evaluate_with_rule(&device, &name, &cfg.pattern)
+                    } else {
+                        crate::compat::evaluate_asset(&device, &name)
+                    };
                     let score = compat.score;
                     let obj = Value::Obj(vec![
                         ("name".into(), Value::str(&name)),
