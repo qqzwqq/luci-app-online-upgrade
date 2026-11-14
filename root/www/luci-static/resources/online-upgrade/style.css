@@ -4603,3 +4603,40 @@ html body .cbi-map.ou-container.ou-theme-dark .ou-stat-sub {
 	color: #e3e7eb !important;
 	border-color: var(--ou-dark-border) !important;
 }
+
+
+/* v2.6.15：修复顶部品牌/版本胶囊及功能标签暗色下仍沿用浅色主题的问题 */
+.ou-container.ou-theme-dark .ou-hero-tags .ou-hero-pill,
+.ou-container.ou-theme-dark .ou-hero-tags .ou-hero-pill.brand,
+.ou-container.ou-theme-dark .ou-hero-tags .ou-hero-pill.version {
+	background: #3a4048 !important;
+	background-color: #3a4048 !important;
+	background-image: none !important;
+	color: #f1f3f5 !important;
+	-webkit-text-fill-color: #f1f3f5 !important;
+	border: 1px solid #59616b !important;
+	box-shadow: none !important;
+	opacity: 1 !important;
+}
+.ou-container.ou-theme-dark .ou-hero-tags .ou-hero-pill *,
+.ou-container.ou-theme-dark .ou-hero-tags .ou-hero-pill svg {
+	color: #f1f3f5 !important;
+	-webkit-text-fill-color: #f1f3f5 !important;
+	stroke: #f1f3f5 !important;
+	opacity: 1 !important;
+}
+.ou-container.ou-theme-dark .ou-hero-features .ou-feature-item {
+	background: #343a42 !important;
+	background-color: #343a42 !important;
+	background-image: none !important;
+	color: #e8ebef !important;
+	-webkit-text-fill-color: #e8ebef !important;
+	border: 1px solid #535d68 !important;
+	box-shadow: none !important;
+}
+.ou-container.ou-theme-dark .ou-hero-features .ou-feature-item *,
+.ou-container.ou-theme-dark .ou-hero-features .ou-feature-item svg {
+	color: #e8ebef !important;
+	-webkit-text-fill-color: #e8ebef !important;
+	stroke: #e8ebef !important;
+}
