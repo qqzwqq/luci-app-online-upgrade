@@ -544,6 +544,7 @@
 			renderEvidenceError(errText);
 			showBtn('btn-force', true);
 			showBtn('btn-upgrade', false);
+			showBtn('btn-download-firmware', false);
 			return;
 		}
 
@@ -699,6 +700,10 @@
 		hint('check-result', msg, lvl);
 		if (box) box.className = 'ou-notice-box' + (lvl === 'ok' ? ' ok' : (lvl === 'err' ? ' err' : ''));
 		showBtn('btn-upgrade', lv === 'compatible' && hasUpdate && !sameVersion);
+		// 系列版本（如云端 25.12、本机 25.12.6）无法判断升级方向，
+		// 但在固件适配已明确通过时，仍开放只下载并预检入口；该入口复用
+		// start_download，不会调用 sysupgrade，也不会刷写或重启。
+		showBtn('btn-download-firmware', !!(ver && ver.relation === 'series' && lv === 'compatible'));
 		if ($('btn-force')) {
 			// 系列号精度不足时，后端会拒绝任何刷写；前端同步隐藏强制按钮，
 			// 避免用户误以为可以通过强制模式绕过版本不确定性。
@@ -2672,6 +2677,7 @@
 	function boot() {
 		watchLuCIDarkTheme();
 		$('btn-check').addEventListener('click', runCheck);
+		$('btn-download-firmware').addEventListener('click', startDownload);
 		$('btn-upgrade').addEventListener('click', function () { startUpgrade(false); });
 		$('btn-force').addEventListener('click', function () { startUpgrade(true); });
 		$('btn-backup').addEventListener('click', runBackup);
