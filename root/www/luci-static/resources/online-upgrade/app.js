@@ -300,7 +300,8 @@
 		newer: '目标版本更高',
 		same: '同版本',
 		older: '目标版本更低',
-		unknown: '版本无法比较'
+		unknown: '版本无法比较',
+		series: '目标仅声明版本系列'
 	};
 	// 版本判定的三种状态：可信可判定 / 弱依据可疑 / 确实无法比较。
 	// 无法比较不等于阻断，只是把依据说清楚后按「升级到该发布版本」处理。
@@ -660,9 +661,16 @@
 				}
 			}
 		} else {
-			// 目标版本低于当前时 has_update=false，但这不是「已是最新」：
-			// 必须明确告诉用户「不执行降级」，并保留强制升级入口的解释。
-			if (ver && ver.relation === 'older') {
+			// 只有系列号（如 25.12）无法与本机完整版本（如 25.12.6）比较。
+			// 这不是“已是最新”，也不能提供强制刷写入口。
+			if (ver && ver.relation === 'series') {
+				msg = res.reason || '云端只提供版本系列号，无法确认目标固件是否比本机更新；已阻止自动升级。';
+				lvl = 'warn';
+				if (badge) {
+					badge.className = 'ou-status-pill update';
+					badge.innerHTML = '<span class="ou-dot update"></span> 版本信息不完整';
+				}
+			} else if (ver && ver.relation === 'older') {
 				msg = res.reason || '目标版本低于当前版本，不执行降级；如确需降级请使用「强制升级」。';
 				lvl = 'warn';
 				if (badge) {
@@ -683,7 +691,9 @@
 		if (box) box.className = 'ou-notice-box' + (lvl === 'ok' ? ' ok' : (lvl === 'err' ? ' err' : ''));
 		showBtn('btn-upgrade', lv === 'compatible' && hasUpdate && !sameVersion);
 		if ($('btn-force')) {
-			showBtn('btn-force', true);
+			// 系列号精度不足时，后端会拒绝任何刷写；前端同步隐藏强制按钮，
+			// 避免用户误以为可以通过强制模式绕过版本不确定性。
+			showBtn('btn-force', !(ver && ver.relation === 'series'));
 			$('btn-force').title = sameVersion
 				? '当前固件与 Release 同版本：这是同版本重装，不是升级，仅在你需要重刷固件时手动使用'
 				: (ver && ver.relation === 'older'
