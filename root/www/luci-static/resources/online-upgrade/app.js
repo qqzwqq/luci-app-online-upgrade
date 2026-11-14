@@ -677,6 +677,13 @@
 					badge.className = 'ou-status-pill update';
 					badge.innerHTML = '<span class="ou-dot update"></span> 不执行降级';
 				}
+			} else if (ver && ver.relation === 'unknown') {
+				msg = res.reason || '无法可靠比较本机与目标固件版本，普通升级已关闭；请核实完整版本号后再决定是否强制升级。';
+				lvl = 'warn';
+				if (badge) {
+					badge.className = 'ou-status-pill update';
+					badge.innerHTML = '<span class="ou-dot update"></span> 版本无法比较';
+				}
 			} else {
 				msg = res.reason || '已是最新版本';
 				lvl = 'ok';
@@ -698,9 +705,11 @@
 				? '当前固件与 Release 同版本：这是同版本重装，不是升级，仅在你需要重刷固件时手动使用'
 				: (ver && ver.relation === 'older'
 					? '目标版本低于当前固件，强制模式将执行降级刷写'
-					: (lv === 'compatible'
-						? '即使已是最新版本也重新下载刷写'
-						: '跳过适配判定与版本方向检查，强制下载并刷写'));
+					: (ver && ver.relation === 'unknown'
+						? '本机与目标版本无法比较：普通升级已关闭。只有核实目标版本和固件来源后，才可强制下载并刷写'
+						: (lv === 'compatible'
+							? '即使已是最新版本也重新下载刷写'
+							: '跳过适配判定与版本方向检查，强制下载并刷写')));
 			setBusy('btn-force', false, forceLabel());
 		}
 	}
