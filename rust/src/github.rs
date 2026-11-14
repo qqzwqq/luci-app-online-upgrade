@@ -455,6 +455,26 @@ fn parse_tag_filter(tag: &str) -> Result<Option<Regex>, String> {
     }
 }
 
+/// 从资产名与 Release 标签选择最完整的固件版本。
+/// 若资产名只写系列号（25.12），而同系列 Release 标签提供完整补丁号
+/// （25.12.6），优先采用更精确的标签；不同系列仍以资产名为准。
+fn firmware_version(file_name: &str, tag: &str) -> (String, &'static str) {
+    let from_file = crate::version::pick(file_name);
+    let from_tag = crate::version::pick(tag);
+    match (from_file, from_tag) {
+        (Some(file), Some(release))
+            if file.nums.len() == 2
+                && release.nums.len() > 2
+                && file.nums == release.nums[..2] =>
+        {
+            (release.as_display(), "tag")
+        }
+        (Some(file), _) => (file.as_display(), "filename"),
+        (None, Some(release)) => (release.as_display(), "tag"),
+        (None, None) => (String::new(), "none"),
+    }
+}
+
 /// 完整的检查流程。返回结果对象（调用方还会将其写入
 /// 状态文件）。
 pub async fn check(client: &reqwest::Client) -> Value {
@@ -672,13 +692,7 @@ pub async fn check(client: &reqwest::Client) -> Value {
         .unwrap_or("")
         .to_string();
 
-    let (fw_version, version_source) = match crate::version::pick(&file_name) {
-        Some(v) => (v.as_display(), "filename"),
-        None => match crate::version::pick(&resolved_tag) {
-            Some(v) => (v.as_display(), "tag"),
-            None => (String::new(), "none"),
-        },
-    };
+    let (fw_version, version_source) = firmware_version(&file_name, &resolved_tag);
     let (cur_id, cur_release, cur_revision) = read_distrib();
     let target_ver = crate::version::pick(&fw_version);
     // 本机版本按可信度逐级探测（自用 SNAPSHOT 构建会退到构建时间）。
@@ -1085,6 +1099,26 @@ mod tests {
 
     fn v(s: &str) -> crate::version::Version {
         crate::version::pick(s).unwrap()
+    }
+
+    #[test]
+    fn full_release_tag_refines_series_only_asset_name() {
+        let (version, source) = firmware_version(
+            "H69K-iStoreOS-25.12-istoreos-rockchip-armv8-hinlink_opc-h6xk-squashfs-sysupgrade.img.gz",
+            "h69k-unified-25.12.6-29-1",
+        );
+        assert_eq!(version, "25.12.6");
+        assert_eq!(source, "tag");
+    }
+
+    #[test]
+    fn series_only_release_tag_does_not_invent_patch_version() {
+        let (version, source) = firmware_version(
+            "H69K-iStoreOS-25.12-istoreos-rockchip-armv8-hinlink_opc-h6xk-squashfs-sysupgrade.img.gz",
+            "h69k-unified-25.12-29-1",
+        );
+        assert_eq!(version, "25.12");
+        assert_eq!(source, "filename");
     }
 
     #[test]
