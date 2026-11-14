@@ -1154,6 +1154,28 @@ mod tests {
     }
 
     #[test]
+    fn same_series_short_tag_is_not_misclassified_as_downgrade() {
+        // H69K 的 Release 标签/文件名只写 25.12 系列，
+        // 本机实际版本是 25.12.6；两段系列号不能补零成 25.12.0。
+        let target = v("25.12");
+        let d = decide_with(Some(&target), &local_of("25.12.6"), Some("old"), Some("0"));
+        assert!(!d.has_update);
+        assert_eq!(d.relation, "unknown");
+        assert_eq!(d.state, "incomparable");
+        assert!(d.confirm_required);
+        assert!(d.reason.contains("只声明 25.12 系列"));
+        assert!(!d.reason.contains("低于当前"));
+    }
+
+    #[test]
+    fn short_series_tag_can_still_compare_across_series() {
+        let target = v("25.12");
+        let d = decide_with(Some(&target), &local_of("24.10.8"), Some("old"), Some("0"));
+        assert!(d.has_update);
+        assert_eq!(d.relation, "newer");
+    }
+
+    #[test]
     fn decide_newer() {
         let t = v("25.12.0");
         let d = decide_with(Some(&t), &local_of("24.10.0"), Some("t"), Some("24.10.0"));
