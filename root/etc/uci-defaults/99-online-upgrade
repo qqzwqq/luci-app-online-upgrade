@@ -16,7 +16,7 @@ if [ -z "$(uci -q get online-upgrade.settings)" ]; then
 		set online-upgrade.settings.dl_min_speed_kb='32'
 		set online-upgrade.settings.dl_slow_window_sec='15'
 		set online-upgrade.settings.dl_slow_grace_sec='10'
-		set online-upgrade.settings.plugin_repo='LianXia233/luci-app-online-upgrade'
+		set online-upgrade.settings.plugin_repo='qqzwqq/luci-app-online-upgrade'
 		commit online-upgrade
 	EOF
 fi
@@ -28,6 +28,13 @@ _set_default() {
 	[ -z "$(uci -q get online-upgrade.settings.$1)" ] || return 0
 	uci -q set "online-upgrade.settings.$1=$2"
 }
+# 将旧版本写入的上游默认值迁移到用户自己的维护仓库；
+# 若用户配置了其他仓库，则尊重其显式选择。
+_OLD_PLUGIN_REPO=$(uci -q get online-upgrade.settings.plugin_repo)
+if [ -z "$_OLD_PLUGIN_REPO" ] || [ "$_OLD_PLUGIN_REPO" = 'LianXia233/luci-app-online-upgrade' ]; then
+	uci -q set online-upgrade.settings.plugin_repo='qqzwqq/luci-app-online-upgrade'
+fi
+_set_default plugin_repo 'qqzwqq/luci-app-online-upgrade'
 _set_default repo_url ''
 _set_default build_branch ''
 _set_default workflow_filter ''
