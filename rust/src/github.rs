@@ -317,7 +317,7 @@ fn decide(
                     candidate.as_display(),
                     current.as_display()
                 ),
-                relation: "unknown",
+                relation: "series",
                 state: "incomparable",
                 confirm_required: true,
             };
@@ -1160,7 +1160,7 @@ mod tests {
         let target = v("25.12");
         let d = decide_with(Some(&target), &local_of("25.12.6"), Some("old"), Some("0"));
         assert!(!d.has_update);
-        assert_eq!(d.relation, "unknown");
+        assert_eq!(d.relation, "series");
         assert_eq!(d.state, "incomparable");
         assert!(d.confirm_required);
         assert!(d.reason.contains("只声明 25.12 系列"));
