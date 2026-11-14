@@ -117,7 +117,7 @@ fn run_cmd_timeout(
 }
 
 pub const PACKAGE: &str = "luci-app-online-upgrade";
-pub const DEFAULT_REPO: &str = "LianXia233/luci-app-online-upgrade";
+pub const DEFAULT_REPO: &str = "qqzwqq/luci-app-online-upgrade";
 pub const STATUS_FILE: &str = "/tmp/online-upgrade-plugin-status.json";
 const VERSION_FILE: &str = "/usr/share/online-upgrade/version";
 const MANIFEST_NAME: &str = "online-upgrade-manifest.json";
@@ -188,7 +188,14 @@ fn now_ts() -> u64 {
 }
 
 fn plugin_repo() -> String {
-    let raw = uci::get_or("plugin_repo", DEFAULT_REPO);
+    // 旧版本把上游仓库写成默认值；对未显式改过配置的老用户，
+    // 将该历史默认值视为待迁移值，统一回到本项目维护仓库。
+    let raw = uci::get("plugin_repo").unwrap_or_default();
+    let raw = if raw.is_empty() || raw == "LianXia233/luci-app-online-upgrade" {
+        DEFAULT_REPO.to_string()
+    } else {
+        raw
+    };
     if repo_re().is_match(&raw) {
         raw
     } else {
