@@ -1368,6 +1368,15 @@
 			if (!ok) return;
 			ubus('delete_task', { id: id }).then(function (r) {
 				if (r && r.ok) {
+					// 删除最后一条已完成的固件任务时，后端会同步清理固件产物。
+					// 前端也必须清除预检缓存并隐藏「使用已下载固件升级」，
+					// 否则按钮会继续引用已经不存在的 /tmp/firmware.img.gz。
+					if (Number(r.files_removed) > 0) {
+						downloadPreflight = null;
+						showBtn('btn-upgrade', false);
+						setBusy('btn-upgrade', false, '立即升级');
+						$('btn-upgrade').removeAttribute('title');
+					}
 					hint('task-hint', ' 已删除任务 ' + id +
 						(r.files_removed ? '（清理 ' + r.files_removed + ' 个临时文件）' : ''), 'ok');
 				} else {
