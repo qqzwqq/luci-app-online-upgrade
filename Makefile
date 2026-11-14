@@ -113,9 +113,9 @@ define Package/luci-app-online-upgrade/postinst
 	fi
 	if [ "$$BOARD_ID" = "hinlink,opc-h69k" ]; then
 		REPO="$$(uci -q get online-upgrade.settings.repo)"
-		REPO_URL="$(uci -q get online-upgrade.settings.repo_url)"
+		REPO_URL="$$(uci -q get online-upgrade.settings.repo_url)"
 		REPO_URL_OK=0
-		case "$REPO_URL" in
+		case "$$REPO_URL" in
 			""|https://github.com/qqzwqq/H69K-iStoreOS|https://github.com/qqzwqq/H69K-iStoreOS/|https://github.com/qqzwqq/H69K-iStoreOS.git|https://github.com/qqzwqq/H69K-iStoreOS/tree/*|https://github.com/qqzwqq/H69K-iStoreOS.git/tree/*)
 				REPO_URL_OK=1 ;;
 		esac
