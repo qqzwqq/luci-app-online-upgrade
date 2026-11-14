@@ -74,7 +74,7 @@ fi
 
 # ---- 2. 从 GitHub Release 下载安装包 ---------------------------------------
 REPO=$(uci -q get online-upgrade.settings.plugin_repo)
-[ -z "$REPO" ] && REPO="LianXia233/luci-app-online-upgrade"
+[ -z "$REPO" ] && REPO="qqzwqq/luci-app-online-upgrade"
 
 # 镜像前缀归一化：后端会把前缀直接拼在地址前，缺结尾斜杠会拼成
 # "https://hosthttps://..."，这里统一补一个。
