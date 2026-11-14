@@ -4327,3 +4327,34 @@ body.dark .ou-container .ou-chip-warn,
 ) {
 	color: #e5eaf0;
 }
+
+
+/* v2.6.12：暗色主题最终兜底。
+ * 使用高优先级限定到插件自身，避免 LuCI/iStoreOS 全局标题规则覆盖；
+ * 同时设置 color 与 text-fill，覆盖部分主题对标题文字的渐变/裁剪效果。
+ */
+html body .cbi-map.ou-container.ou-theme-dark h1,
+html body .cbi-map.ou-container.ou-theme-dark h2,
+html body .cbi-map.ou-container.ou-theme-dark h3,
+html body .cbi-map.ou-container.ou-theme-dark h4,
+html body .cbi-map.ou-container.ou-theme-dark h5,
+html body .cbi-map.ou-container.ou-theme-dark h6,
+html body .cbi-map.ou-container.ou-theme-dark legend,
+html body .cbi-map.ou-container.ou-theme-dark [class*="title"],
+html body .cbi-map.ou-container.ou-theme-dark [class*="heading"],
+html body .cbi-map.ou-container.ou-theme-dark .ou-stat-label,
+html body .cbi-map.ou-container.ou-theme-dark .ou-evidence-kicker,
+html body .cbi-map.ou-container.ou-theme-dark .ou-fact-label,
+html body .cbi-map.ou-container.ou-theme-dark .ou-st-diag-sec-title {
+	color: #f8fafc !important;
+	-webkit-text-fill-color: #f8fafc !important;
+	text-shadow: none !important;
+	opacity: 1 !important;
+}
+html body .cbi-map.ou-container.ou-theme-dark .ou-head-sub,
+html body .cbi-map.ou-container.ou-theme-dark .ou-hero-desc,
+html body .cbi-map.ou-container.ou-theme-dark .ou-field-help,
+html body .cbi-map.ou-container.ou-theme-dark .ou-stat-sub {
+	color: #c0cad5 !important;
+	-webkit-text-fill-color: #c0cad5 !important;
+}
