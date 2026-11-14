@@ -295,10 +295,9 @@ fn local_basis(local: &crate::localver::LocalVersion, cur: &crate::version::Vers
 /// “无法比较”分类：
 ///   - decidable  本地版本可信，可判定为新版/旧版/同版
 ///   - suspect    本地版本只能靠弱依据（构建时间、修订号、包版本）推断
-///   - incomparable 确实取不到版本号：按「将升级到该发布版本」放行，但明确说明原因
+///   - incomparable 确实取不到可比较的版本号：不显示普通升级，要求用户显式强制确认
 ///
-/// 只有降级需要二次确认；不确定本身从不阻断，
-/// 且机型/架构/哈希校验在任何情况下都仍然生效。
+/// 无法比较不能被当作“发现新版本”；机型/架构/哈希校验在任何情况下仍然生效。
 fn decide(
     last_ts: Option<&str>,
     last_version: Option<&str>,
@@ -400,29 +399,29 @@ fn decide(
                     local.raw.as_str()
                 };
                 Decision {
-                    has_update: true,
+                    has_update: false,
                     reason: format!(
-                        "自用构建固件没有可比较的版本号（本地标记 {}），将按「升级到 v{}」处理；机型、架构与哈希校验仍然生效",
+                        "无法可靠比较本机版本（本地标记 {}）与目标 v{}；为防止误刷旧版本，已关闭普通升级入口。如已核实固件来源与版本，可使用强制升级进行人工确认；机型、架构与哈希校验仍然生效",
                         marker,
                         t.as_display()
                     ),
                     relation: "unknown",
                     state: "incomparable",
-                    confirm_required: false,
+                    confirm_required: true,
                 }
             }
         }
         (_, None) => {
             if !asset_updated.is_empty() && last_ts.map(|t| t != asset_updated).unwrap_or(true) {
                 Decision {
-                    has_update: true,
+                    has_update: false,
                     reason: format!(
-                        "未能从文件名或标签解析出版本号，按 Release 发布时间判定（{}）",
+                        "Release 文件名与标签均未提供可比较版本号（发布时间 {} 只能作为时间线索，不能证明固件版本更高）；已关闭普通升级入口。如已人工核实版本，可使用强制升级确认",
                         utc_to_local(asset_updated)
                     ),
                     relation: "unknown",
                     state: "incomparable",
-                    confirm_required: false,
+                    confirm_required: true,
                 }
             } else {
                 Decision {
@@ -533,6 +532,17 @@ pub async fn check(client: &reqwest::Client) -> Value {
             _ => continue,
         };
 
+        // 无论自动匹配还是使用 firmware_pattern，都记录 Release 中实际资产，
+        // 避免显式规则未命中时错误显示“候选文件：无”。
+        for a in assets {
+            if candidate_names.len() < 6 {
+                let name = asset_name(a);
+                let size = asset_size(a);
+                let size_note = if size < min_bytes { "，低于最小体积门槛" } else { "" };
+                candidate_names.push(format!("{name} [{size} bytes{size_note}]"));
+            }
+        }
+
         let pick: Option<(Value, crate::compat::CompatResult, Option<String>)> =
             if let Some(re) = &rule_re {
                 // 显式规则：取第一个体积达标且声明架构
@@ -561,9 +571,6 @@ pub async fn check(client: &reqwest::Client) -> Value {
                         let name = asset_name(a);
                         if asset_size(a) < min_bytes {
                             return None;
-                        }
-                        if candidate_names.len() < 6 {
-                            candidate_names.push(format!("{} [{}]", name, "候选"));
                         }
                         let eval = crate::compat::evaluate_asset(&device, &name);
                         if eval.level == crate::compat::CompatLevel::Compatible {
@@ -1252,18 +1259,17 @@ mod tests {
     }
 
     #[test]
-    fn decide_snapshot_device_is_allowed_not_blocked() {
-        // SNAPSHOT 固件确实取不到版本号：放行，但状态必须是「无法比较」
+    fn decide_snapshot_device_requires_explicit_confirmation() {
+        // SNAPSHOT 固件取不到可比较版本号：不得把发布时间当成新版依据。
         let t = v("25.12.0");
         let d = decide_with(Some(&t), &local_of("SNAPSHOT"), Some("t"), Some("0"));
-        assert!(d.has_update, "无法比较不应阻断升级");
+        assert!(!d.has_update, "无法比较时不得开放普通升级");
         assert_eq!(d.relation, "unknown");
         assert_eq!(d.state, "incomparable");
-        assert!(!d.confirm_required);
-        assert!(d.reason.contains("没有可比较的版本号"));
-        // 必须说明其余安全闸仍然生效，且不再是「请确认后升级」
-        assert!(d.reason.contains("仍然生效"));
-        assert!(!d.reason.contains("请确认后升级"));
+        assert!(d.confirm_required);
+        assert!(d.reason.contains("无法可靠比较"));
+        assert!(d.reason.contains("强制升级"));
+        assert!(d.reason.contains("机型、架构与哈希校验仍然生效"));
     }
 
     #[test]
@@ -1294,19 +1300,20 @@ mod tests {
             Some("old"),
             Some("0"),
         );
-        assert!(d.has_update, "不可比时应放行升级");
+        assert!(!d.has_update, "不可比时不得开放普通升级");
         assert_eq!(d.relation, "unknown");
         assert_eq!(d.state, "incomparable");
-        assert!(!d.confirm_required);
-        assert!(d.reason.contains("没有可比较的版本号"));
+        assert!(d.confirm_required);
+        assert!(d.reason.contains("无法可靠比较"));
     }
 
     #[test]
     fn decide_self_build_without_version() {
         let d = decide_with(None, &local_of("自用构建"), Some("old"), Some("0"));
-        assert!(d.has_update);
+        assert!(!d.has_update);
         assert_eq!(d.relation, "unknown");
-        assert!(d.reason.contains("发布时间"));
+        assert!(d.confirm_required);
+        assert!(d.reason.contains("不能证明固件版本更高"));
     }
 
     #[test]
