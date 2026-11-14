@@ -389,3 +389,44 @@ jobs:
           files: /tmp/pkgs/*
           token: ${{ github.token }}
           make_latest: true
+
+      # 仅在新版本 Release 上传成功后清理历史正式版本。
+      # 保留最新 5 个 vX.Y.Z 稳定版；不处理草稿、预发布版或非标准标签。
+      - name: Keep latest 5 stable releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CURRENT_TAG: ${{ needs.verify.outputs.tag }}
+        run: |
+          set -eu
+          gh release list --repo "$GITHUB_REPOSITORY" --limit 100 \
+            --json tagName,isDraft,isPrerelease,publishedAt > /tmp/releases.json
+
+          # 仅识别严格的 v主.次.补丁 标签，并按数字版本号排序。
+          jq -r '
+            [
+              .[]
+              | select(.isDraft == false and .isPrerelease == false)
+              | select(.tagName | test("^v[0-9]+\\.[0-9]+\\.[0-9]+$"))
+            ]
+            | sort_by(
+                (.tagName | capture("^v(?<major>[0-9]+)\\.(?<minor>[0-9]+)\\.(?<patch>[0-9]+)$") |
+                  [.major | tonumber, .minor | tonumber, .patch | tonumber])
+              )
+            | if length > 5 then .[0:(length - 5)][] | .tagName else empty end
+          ' /tmp/releases.json > /tmp/old-releases.txt
+
+          if [ ! -s /tmp/old-releases.txt ]; then
+            echo "正式 Release 不超过 5 个，无需清理"
+            exit 0
+          fi
+
+          while IFS= read -r old_tag; do
+            [ -n "$old_tag" ] || continue
+            # 保险：无论排序结果如何，绝不删除本次刚发布的版本。
+            if [ "$old_tag" = "$CURRENT_TAG" ]; then
+              echo "跳过当前发布版本: $old_tag"
+              continue
+            fi
+            echo "删除过期正式 Release 和标签: $old_tag"
+            gh release delete "$old_tag" --cleanup-tag --yes --repo "$GITHUB_REPOSITORY"
+          done < /tmp/old-releases.txt
