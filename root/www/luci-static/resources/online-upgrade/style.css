@@ -4640,3 +4640,154 @@ html body .cbi-map.ou-container.ou-theme-dark .ou-stat-sub {
 	-webkit-text-fill-color: #e8ebef !important;
 	stroke: #e8ebef !important;
 }
+
+
+/* v2.6.18：暗色模式小标签、状态提示与任务/备份表格最终对比度修复。
+ * 规则放在样式表末尾，并限定插件容器，避免 LuCI 全局主题覆盖。
+ */
+.ou-container.ou-theme-dark :is(
+  .ou-status-pill, .ou-chip-ok, .ou-chip-warn, .ou-chip-err,
+  .ou-compat-chip, .ou-evidence-state, .ou-tag-chip,
+  .ou-badge-size, .ou-task-kind, .ou-quick-pill,
+  .ou-hero-pill, .ou-dialog-eyebrow
+) {
+  background: #3a424b !important;
+  background-color: #3a424b !important;
+  background-image: none !important;
+  color: #f2f5f8 !important;
+  -webkit-text-fill-color: #f2f5f8 !important;
+  border: 1px solid #626d79 !important;
+  box-shadow: none !important;
+  opacity: 1 !important;
+  text-shadow: none !important;
+}
+.ou-container.ou-theme-dark :is(
+  .ou-status-pill.ok, .ou-chip-ok, .ou-compat-chip.ok,
+  .ou-evidence-state.ok, .ou-notice-box.ok
+) {
+  background: #203d34 !important;
+  background-color: #203d34 !important;
+  color: #b9f2d8 !important;
+  -webkit-text-fill-color: #b9f2d8 !important;
+  border-color: #39745e !important;
+}
+.ou-container.ou-theme-dark :is(
+  .ou-status-pill.update, .ou-chip-warn, .ou-compat-chip.warn,
+  .ou-evidence-state.warn, .ou-evidence-state.busy
+) {
+  background: #403522 !important;
+  background-color: #403522 !important;
+  color: #ffe0a3 !important;
+  -webkit-text-fill-color: #ffe0a3 !important;
+  border-color: #80663a !important;
+}
+.ou-container.ou-theme-dark :is(
+  .ou-status-pill.err, .ou-chip-err, .ou-compat-chip.err,
+  .ou-evidence-state.err, .ou-notice-box.err
+) {
+  background: #452b30 !important;
+  background-color: #452b30 !important;
+  color: #ffc1c7 !important;
+  -webkit-text-fill-color: #ffc1c7 !important;
+  border-color: #80505a !important;
+}
+/* “状态已同步”等普通提示：不再使用浅色主题遗留的浅灰/白底 */
+.ou-container.ou-theme-dark :is(
+  .ou-hint, .hint, .ou-plugin-hint, .ou-convention-note,
+  .ou-task-meta, #task-hint, #backup-hint, #states-hint
+) {
+  background: #303841 !important;
+  background-color: #303841 !important;
+  color: #dce4ec !important;
+  -webkit-text-fill-color: #dce4ec !important;
+  border: 1px solid #4d5966 !important;
+  border-radius: 7px !important;
+  padding: 7px 10px !important;
+  opacity: 1 !important;
+}
+.ou-container.ou-theme-dark :is(.ou-notice-box, #check-result-box) {
+  background: #303841 !important;
+  background-color: #303841 !important;
+  color: #edf2f7 !important;
+  -webkit-text-fill-color: #edf2f7 !important;
+  border: 1px solid #56616e !important;
+}
+.ou-container.ou-theme-dark .ou-notice-box.ok {
+  background: #203d34 !important;
+  background-color: #203d34 !important;
+  color: #c5f3dd !important;
+  -webkit-text-fill-color: #c5f3dd !important;
+  border-color: #39745e !important;
+}
+.ou-container.ou-theme-dark .ou-notice-box.err {
+  background: #452b30 !important;
+  background-color: #452b30 !important;
+  color: #ffc1c7 !important;
+  -webkit-text-fill-color: #ffc1c7 !important;
+  border-color: #80505a !important;
+}
+/* 下载任务与备份记录：明确区分表头、数据行、斑马纹和悬停态 */
+.ou-container.ou-theme-dark #task-table,
+.ou-container.ou-theme-dark #backup-table {
+  background: #292e34 !important;
+  background-color: #292e34 !important;
+  color: #edf0f3 !important;
+  border-color: #59636f !important;
+}
+.ou-container.ou-theme-dark #task-table thead,
+.ou-container.ou-theme-dark #backup-table thead,
+.ou-container.ou-theme-dark #task-table thead tr,
+.ou-container.ou-theme-dark #backup-table thead tr {
+  background: #3b444e !important;
+  background-color: #3b444e !important;
+}
+.ou-container.ou-theme-dark #task-table thead th,
+.ou-container.ou-theme-dark #backup-table thead th {
+  background: #3b444e !important;
+  background-color: #3b444e !important;
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+  border-color: #626e7b !important;
+  font-weight: 700 !important;
+}
+.ou-container.ou-theme-dark #task-table tbody tr,
+.ou-container.ou-theme-dark #backup-table tbody tr {
+  background: #292e34 !important;
+  background-color: #292e34 !important;
+}
+.ou-container.ou-theme-dark #task-table tbody tr:nth-child(even),
+.ou-container.ou-theme-dark #backup-table tbody tr:nth-child(even) {
+  background: #30363d !important;
+  background-color: #30363d !important;
+}
+.ou-container.ou-theme-dark #task-table tbody td,
+.ou-container.ou-theme-dark #backup-table tbody td {
+  background: inherit !important;
+  color: #e8edf2 !important;
+  -webkit-text-fill-color: #e8edf2 !important;
+  border-color: #4b5561 !important;
+}
+.ou-container.ou-theme-dark #task-table tbody tr:hover,
+.ou-container.ou-theme-dark #backup-table tbody tr:hover,
+.ou-container.ou-theme-dark #task-table tbody tr:hover td,
+.ou-container.ou-theme-dark #backup-table tbody tr:hover td {
+  background: #3b4651 !important;
+  background-color: #3b4651 !important;
+}
+.ou-container.ou-theme-dark #task-table .ou-badge-size,
+.ou-container.ou-theme-dark #backup-table .ou-badge-size,
+.ou-container.ou-theme-dark #task-table .ou-time-text,
+.ou-container.ou-theme-dark #backup-table .ou-time-text {
+  background: #39424c !important;
+  background-color: #39424c !important;
+  color: #f0f4f8 !important;
+  -webkit-text-fill-color: #f0f4f8 !important;
+  border: 1px solid #596674 !important;
+  border-radius: 6px !important;
+  padding: 3px 7px !important;
+}
+.ou-container.ou-theme-dark #task-table .ou-task-meta {
+  background: #303841 !important;
+  color: #d4dde6 !important;
+  -webkit-text-fill-color: #d4dde6 !important;
+}
