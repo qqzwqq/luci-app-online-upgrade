@@ -410,7 +410,7 @@ jobs:
             ]
             | sort_by(
                 (.tagName | capture("^v(?<major>[0-9]+)\\.(?<minor>[0-9]+)\\.(?<patch>[0-9]+)$") |
-                  [.major | tonumber, .minor | tonumber, .patch | tonumber])
+                  [(.major | tonumber), (.minor | tonumber), (.patch | tonumber)])
               )
             | if length > 5 then .[0:(length - 5)][] | .tagName else empty end
           ' /tmp/releases.json > /tmp/old-releases.txt
