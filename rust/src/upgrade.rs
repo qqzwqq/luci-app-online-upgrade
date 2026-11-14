@@ -754,6 +754,19 @@ pub async fn run(force: bool) -> i32 {
     let name = asset.name.clone();
     let size_hint = asset.size;
 
+    // 目标仅声明版本系列（例如 25.12），无法证明它高于本机完整版本
+    // （例如 25.12.6）。这是信息不足，不是普通降级确认；即使强制模式
+    // 也不允许绕过，必须由 Release 文件名/标签提供完整补丁版本后再刷。
+    if asset.relation == "series" {
+        let err = format!(
+            "目标固件只声明版本系列 [{}]，无法确认是否高于本机版本；为防止误刷旧固件，已阻止下载与刷写。请发布完整版本号后重新检测",
+            fw_version
+        );
+        logline!("[upgrade] {err}");
+        status::set_error("failed", 100, "目标版本信息不完整，已阻止升级", &err);
+        return 1;
+    }
+
     let device = crate::compat::DeviceProfile::current();
     let compat = match asset.rule.as_deref() {
         Some(rule) => crate::compat::evaluate_with_rule(&device, &name, rule),
