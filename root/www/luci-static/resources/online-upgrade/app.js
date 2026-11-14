@@ -829,6 +829,7 @@
 		check_failed: '检测失败',
 		downloading: '正在下载固件...',
 		paused: '下载已暂停，点击「继续」恢复',
+		verifying: '正在校验固件与设备兼容性...',
 		downloaded: '固件下载完成',
 		saving: '记录固件版本...',
 		backing_up: '正在创建配置备份...',

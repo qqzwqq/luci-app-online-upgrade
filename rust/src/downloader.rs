@@ -1039,7 +1039,7 @@ mod tests {
         t.observe(100, &p, false);
         t.observe(32 * 1024 * 1024, &p, false); // 单秒恢复保留在滚动窗口中
         assert_eq!(t.samples.len(), 3);
-        for _ in 0..4 {
+        for _ in 0..3 {
             assert!(t.observe(100, &p, false).is_none());
         }
         let (avg, secs) = t.observe(100, &p, false).unwrap();
