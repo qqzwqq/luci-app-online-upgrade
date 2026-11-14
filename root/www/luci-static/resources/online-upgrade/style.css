@@ -3815,9 +3815,6 @@ body.ou-modal-open {
    LuCI/iStoreOS 暗色模式使用深灰层级，不使用纯黑底或纯白卡片。
    同时兼容常见的 darkmode 属性、dark class 与 data-theme 标记。
    -------------------------------------------------------------------------- */
-:root {
-	color-scheme: light;
-}
 html[data-darkmode="true"] .ou-container,
 body[data-darkmode="true"] .ou-container,
 html.dark .ou-container,
