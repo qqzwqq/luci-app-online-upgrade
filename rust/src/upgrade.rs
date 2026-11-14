@@ -239,7 +239,7 @@ fn cleanup_download() {
 /// 完成文件的 SHA256；不含哈希的标记（旧版本写入）
 /// 一律不可信。调用方之后仍必须执行完整校验——
 /// 复用只跳过网络传输，不跳过哈希校验。
-fn reuse_download(updated: &str, size: u64) -> bool {
+fn reuse_download(updated: &str, size: u64, name: &str, url: &str) -> bool {
     let meta = match std::fs::metadata(TMP_FIRMWARE) {
         Ok(m) => m,
         Err(_) => return false,
@@ -254,8 +254,10 @@ fn reuse_download(updated: &str, size: u64) -> bool {
     let mut lines = marker.lines().map(|l| l.trim()).filter(|l| !l.is_empty());
     let stamp = lines.next().unwrap_or("");
     let recorded = lines.next().unwrap_or("").to_lowercase();
-    if stamp != updated || recorded.len() != 64 {
-        logline!("[download] 拒绝对磁盘上的固件复用: 标记缺少哈希或时间戳不符");
+    let marked_name = lines.next().unwrap_or("");
+    let marked_url = lines.next().unwrap_or("");
+    if stamp != updated || recorded.len() != 64 || marked_name != name || marked_url != url {
+        logline!("[download] 拒绝复用固件: 资产时间戳、文件名、下载地址或哈希标记不匹配");
         return false;
     }
     match crate::hash::sha256_file(TMP_FIRMWARE) {
@@ -277,8 +279,8 @@ fn reuse_download(updated: &str, size: u64) -> bool {
 
 /// 标记格式：第 1 行为资产的 `updated` 时间戳，第 2 行为完成文件的
 /// 本地 SHA256。仅在文件通过校验后写入。
-fn write_download_marker(updated: &str, sha256: &str) {
-    let _ = std::fs::write(TMP_FIRMWARE_TS, format!("{updated}\n{sha256}\n"));
+fn write_download_marker(updated: &str, sha256: &str, name: &str, url: &str) {
+    let _ = std::fs::write(TMP_FIRMWARE_TS, format!("{updated}\n{sha256}\n{name}\n{url}\n"));
 }
 
 struct Asset {
@@ -607,7 +609,7 @@ pub async fn download_only() -> i32 {
     let mut resumed_chunks = 0usize;
     let task_id: Option<String>;
     let mut control: Option<DownloadControl> = None;
-    if reuse_download(&asset.updated, asset.size) {
+    if reuse_download(&asset.updated, asset.size, &asset.name, &asset.url) {
         // 仅当残留文件的标记带有完成字节的哈希时才复用；
         // 无论是否复用，下面都会重新校验该哈希。
         total = std::fs::metadata(TMP_FIRMWARE)
@@ -699,7 +701,7 @@ pub async fn download_only() -> i32 {
     };
     // 标记只在校验通过后写入：它表示“该文件
     // 已通过哈希校验”，这正是下次复用安全的前提。
-    write_download_marker(&asset.updated, &integrity.sha256);
+    write_download_marker(&asset.updated, &integrity.sha256, &asset.name, &asset.url);
     if let Some(id) = &task_id {
         let speed = control
             .as_ref()
@@ -746,11 +748,14 @@ pub async fn download_only() -> i32 {
     0
 }
 
-pub async fn run(force: bool) -> i32 {
+pub async fn run(force: bool, confirm_version: bool) -> i32 {
     status::trim_log();
     let client = crate::http::client();
     if force {
         logline!("[upgrade] 强制更新模式");
+    }
+    if confirm_version {
+        logline!("[upgrade] 用户已在下载预检后明确确认版本方向无法自动比较；继续执行其余完整安全检查");
     }
 
     // ---- 步骤 0：检查更新并获取资产信息 ----
@@ -767,22 +772,21 @@ pub async fn run(force: bool) -> i32 {
     let name = asset.name.clone();
     let size_hint = asset.size;
 
-    // 目标仅声明版本系列（例如 25.12），无法证明它高于本机完整版本
-    // （例如 25.12.6）。这是信息不足，不是普通降级确认；即使强制模式
-    // 也不允许绕过，必须由 Release 文件名/标签提供完整补丁版本后再刷。
-    if asset.relation == "series" {
+    // 版本系列（如 25.12 对 25.12.6）或无法比较时，默认禁止刷写。
+    // 只有用户在完成下载、哈希记录和设备预检后，再次明确确认目标版本，
+    // 才允许继续；这不是 force，不会跳过机型/架构或 sysupgrade -T 检查。
+    if (asset.relation == "series" || asset.relation == "unknown") && !confirm_version {
         let err = format!(
-            "目标固件只声明版本系列 [{}]，无法确认是否高于本机版本；为防止误刷旧固件，已阻止下载与刷写。请发布完整版本号后重新检测",
+            "目标版本 [{}] 与本机版本无法自动比较；未收到用户的版本风险确认，已阻止刷写",
             fw_version
         );
         logline!("[upgrade] {err}");
-        status::set_error("failed", 100, "目标版本信息不完整，已阻止升级", &err);
+        status::set_error("failed", 100, "需要人工确认目标版本", &err);
         return 1;
     }
 
-    // 版本完全不可比较时，普通升级必须停止；只有用户明确选择强制升级
-    // 才能继续人工覆盖。series（如 25.12 对 25.12.6）仍由上方永久拦截。
-    if asset.relation == "unknown" && !force {
+    // 版本完全不可比较时，只有显式版本确认或强制模式才允许继续。
+    if asset.relation == "unknown" && !force && !confirm_version {
         let err = format!(
             "目标版本 [{}] 与本机版本无法可靠比较；普通升级已阻止。请先核实 Release 的完整版本号，只有确认固件来源和版本后才可使用强制升级",
             fw_version
@@ -845,7 +849,7 @@ pub async fn run(force: bool) -> i32 {
     // 在写入闪存之前匹配期望的校验和。
     let task_id: Option<String>;
     let mut control: Option<DownloadControl> = None;
-    if reuse_download(&updated, size_hint) {
+    if reuse_download(&updated, size_hint, &name, &asset.url) {
         logline!("[upgrade] 复用上一轮已校验的固件副本,跳过传输({})", name);
         status::set("downloaded", 90, "复用已下载固件,正在重新校验...");
         task_id = None;
@@ -920,7 +924,7 @@ pub async fn run(force: bool) -> i32 {
         integrity.sha256
     );
     // 只有通过校验的文件才写入复用标记。
-    write_download_marker(&updated, &integrity.sha256);
+    write_download_marker(&updated, &integrity.sha256, &name, &asset.url);
 
     // ---- 步骤 2：备份成功后记录版本 ----
     // 顺序很重要：先写版本会在备份失败时留下错误的
