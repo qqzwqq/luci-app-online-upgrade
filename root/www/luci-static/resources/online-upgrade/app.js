@@ -2617,7 +2617,7 @@
 			var cls = typeof el.className === 'string' ? el.className : '';
 			var dm = (el.getAttribute('data-darkmode') || '').toLowerCase();
 			var theme = (el.getAttribute('data-theme') || '').toLowerCase();
-			if (/(^|\\s)dark(\\s|$)/i.test(cls) ||
+			if (/(^|\s)dark(\s|$)/i.test(cls) ||
 				(dm && dm !== 'false' && dm !== '0' && dm !== 'light') ||
 				theme === 'dark' || el.classList.contains('darkmode'))
 				dark = true;
@@ -2628,7 +2628,7 @@
 			try { style = window.getComputedStyle(node); } catch (e) { style = null; }
 			if (style) {
 				var bg = style.backgroundColor || '';
-				var m = bg.match(/rgba?\\(\\s*([\\d.]+)[, ]+\\s*([\\d.]+)[, ]+\\s*([\\d.]+)/i);
+				var m = bg.match(/rgba?\(\s*([\d.]+)[, ]+\s*([\d.]+)[, ]+\s*([\d.]+)/i);
 				if (m && (style.backgroundImage === 'none' || !style.backgroundImage)) {
 					var r = Number(m[1]), g = Number(m[2]), b = Number(m[3]);
 					var luminance = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
