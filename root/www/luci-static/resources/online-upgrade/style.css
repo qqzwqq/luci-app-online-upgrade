@@ -4244,3 +4244,45 @@ body.dark .ou-container .ou-chip-warn,
 	border-color: #414b58 !important;
 	color-scheme: dark;
 }
+
+
+/* v2.6.8：补齐所有标题类文字的暗色对比度。
+ * 兼容 LuCI 常见的 true/1 属性、dark class 与 data-theme 标记。
+ */
+:is(
+  html[data-darkmode="true"], body[data-darkmode="true"],
+  html[data-darkmode="1"], body[data-darkmode="1"],
+  html.dark, body.dark, [data-theme="dark"], .dark
+) .ou-container :is(
+  h1, h2, h3, h4, h5, h6, legend,
+  [class*="title"], [class*="heading"],
+  .ou-evidence-kicker, .ou-stat-label, .ou-step-text,
+  .ou-fact-label, .ou-st-diag-sec-title
+) {
+  color: #f1f5f9 !important;
+  -webkit-text-fill-color: #f1f5f9 !important;
+  text-shadow: none !important;
+}
+
+:is(
+  html[data-darkmode="true"], body[data-darkmode="true"],
+  html[data-darkmode="1"], body[data-darkmode="1"],
+  html.dark, body.dark, [data-theme="dark"], .dark
+) .ou-container :is(
+  .ou-stat-label, .ou-evidence-kicker, .ou-fact-label,
+  .ou-head-sub, .ou-step-text, .ou-st-key, .ou-plugin-key
+) {
+  color: #b9c4d0 !important;
+  -webkit-text-fill-color: #b9c4d0 !important;
+}
+
+.ou-container.dark :is(
+  h1, h2, h3, h4, h5, h6, legend,
+  [class*="title"], [class*="heading"],
+  .ou-evidence-kicker, .ou-stat-label, .ou-step-text,
+  .ou-fact-label, .ou-st-diag-sec-title
+) {
+  color: #f1f5f9 !important;
+  -webkit-text-fill-color: #f1f5f9 !important;
+  text-shadow: none !important;
+}
