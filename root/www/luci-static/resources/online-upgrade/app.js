@@ -1001,7 +1001,7 @@
 			eyebrow: isForce ? '强制刷写' : '在线升级',
 			title: title,
 			message: message,
-			confirmText: confirmVersion ? '确认并继续升级' : (isForce ? (same ? '确认重装' : '继续强制升级') : '开始升级')
+			confirmText: confirmVersion ? '确认并开始升级' : (isForce ? (same ? '确认重装' : '继续强制升级') : '开始升级')
 		}).then(function (ok) {
 			if (ok) doStartUpgrade(isForce, confirmVersion);
 		});
