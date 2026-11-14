@@ -201,7 +201,8 @@ jobs:
       - name: Upload package artifact
         uses: actions/upload-artifact@v7
         with:
-          name: pkg-${{ matrix.bin_artifact }}
+          # 每个软件包架构必须使用独立 Artifact 名称；同一 Rust 二进制可能打包成多个架构包。
+          name: pkg-${{ matrix.pkg_arch }}
           path: /tmp/pkgs/*
           if-no-files-found: error
 
