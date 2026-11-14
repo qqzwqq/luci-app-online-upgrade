@@ -3807,3 +3807,443 @@ body.ou-modal-open {
 	.ou-container .ou-st-panel-head { align-items: flex-start !important; }
 	.ou-container .ou-st-layer { font-size: 10px !important; }
 }
+
+
+
+/* --------------------------------------------------------------------------
+   暗色主题适配（v2.6.7）
+   LuCI/iStoreOS 暗色模式使用深灰层级，不使用纯黑底或纯白卡片。
+   同时兼容常见的 darkmode 属性、dark class 与 data-theme 标记。
+   -------------------------------------------------------------------------- */
+:root {
+	color-scheme: light;
+}
+html[data-darkmode="true"] .ou-container,
+body[data-darkmode="true"] .ou-container,
+html.dark .ou-container,
+body.dark .ou-container,
+[data-theme="dark"] .ou-container,
+.ou-container[data-theme="dark"] {
+	color-scheme: dark;
+	--ou-dark-bg: #20252d;
+	--ou-dark-card: #292f38;
+	--ou-dark-card-soft: #303741;
+	--ou-dark-card-hover: #353e49;
+	--ou-dark-border: #414b58;
+	--ou-dark-border-soft: #39434f;
+	--ou-dark-text: #e5eaf0;
+	--ou-dark-text-strong: #f1f5f9;
+	--ou-dark-muted: #aab5c2;
+	--ou-dark-subtle: #8793a2;
+	--ou-dark-blue-bg: #263d59;
+	--ou-dark-blue-border: #385b80;
+	--ou-dark-blue-text: #9cc8ff;
+	--ou-dark-green-bg: #203d35;
+	--ou-dark-green-border: #326653;
+	--ou-dark-green-text: #8ee0bd;
+	--ou-dark-amber-bg: #493a25;
+	--ou-dark-amber-border: #70552e;
+	--ou-dark-amber-text: #f2c77f;
+	--ou-dark-red-bg: #482d32;
+	--ou-dark-red-border: #70434a;
+	--ou-dark-red-text: #ffabb3;
+}
+
+/* 页面主卡片、横幅、统计卡片与配置区域 */
+html[data-darkmode="true"] .ou-container .cbi-section,
+body[data-darkmode="true"] .ou-container .cbi-section,
+html.dark .ou-container .cbi-section,
+body.dark .ou-container .cbi-section,
+[data-theme="dark"] .ou-container .cbi-section,
+html[data-darkmode="true"] .ou-container .ou-card,
+body[data-darkmode="true"] .ou-container .ou-card,
+html.dark .ou-container .ou-card,
+body.dark .ou-container .ou-card,
+[data-theme="dark"] .ou-container .ou-card,
+html[data-darkmode="true"] .ou-container .ou-hero-card,
+body[data-darkmode="true"] .ou-container .ou-hero-card,
+html.dark .ou-container .ou-hero-card,
+body.dark .ou-container .ou-hero-card,
+[data-theme="dark"] .ou-container .ou-hero-card {
+	background: var(--ou-dark-card) !important;
+	background-image: none !important;
+	border-color: var(--ou-dark-border) !important;
+	color: var(--ou-dark-text) !important;
+	box-shadow: 0 5px 18px rgba(0,0,0,.18) !important;
+}
+html[data-darkmode="true"] .ou-container .ou-stat-card,
+body[data-darkmode="true"] .ou-container .ou-stat-card,
+html.dark .ou-container .ou-stat-card,
+body.dark .ou-container .ou-stat-card,
+[data-theme="dark"] .ou-container .ou-stat-card,
+html[data-darkmode="true"] .ou-container .ou-form-card,
+body[data-darkmode="true"] .ou-container .ou-form-card,
+html.dark .ou-container .ou-form-card,
+body.dark .ou-container .ou-form-card,
+[data-theme="dark"] .ou-container .ou-form-card,
+html[data-darkmode="true"] .ou-container .ou-config-summary-card,
+body[data-darkmode="true"] .ou-container .ou-config-summary-card,
+html.dark .ou-container .ou-config-summary-card,
+body.dark .ou-container .ou-config-summary-card,
+[data-theme="dark"] .ou-container .ou-config-summary-card {
+	background: var(--ou-dark-card-soft) !important;
+	background-image: none !important;
+	border-color: var(--ou-dark-border) !important;
+	color: var(--ou-dark-text) !important;
+}
+html[data-darkmode="true"] .ou-container .ou-stat-card:hover,
+body[data-darkmode="true"] .ou-container .ou-stat-card:hover,
+html.dark .ou-container .ou-stat-card:hover,
+body.dark .ou-container .ou-stat-card:hover,
+[data-theme="dark"] .ou-container .ou-stat-card:hover {
+	background: var(--ou-dark-card-hover) !important;
+	border-color: #566475 !important;
+}
+
+/* 标题、正文、辅助说明与诊断信息 */
+html[data-darkmode="true"] .ou-container h1,
+html[data-darkmode="true"] .ou-container h2,
+html[data-darkmode="true"] .ou-container h3,
+html[data-darkmode="true"] .ou-container h4,
+html[data-darkmode="true"] .ou-container .ou-hero-title,
+html[data-darkmode="true"] .ou-container .ou-stat-val,
+html[data-darkmode="true"] .ou-container .ou-st-panel-head h4,
+html[data-darkmode="true"] .ou-container .ou-st-val,
+body[data-darkmode="true"] .ou-container h1,
+body[data-darkmode="true"] .ou-container h2,
+body[data-darkmode="true"] .ou-container h3,
+body[data-darkmode="true"] .ou-container h4,
+body[data-darkmode="true"] .ou-container .ou-hero-title,
+body[data-darkmode="true"] .ou-container .ou-stat-val,
+body[data-darkmode="true"] .ou-container .ou-st-panel-head h4,
+body[data-darkmode="true"] .ou-container .ou-st-val,
+html.dark .ou-container h1,
+html.dark .ou-container h2,
+html.dark .ou-container h3,
+html.dark .ou-container h4,
+html.dark .ou-container .ou-hero-title,
+html.dark .ou-container .ou-stat-val,
+html.dark .ou-container .ou-st-panel-head h4,
+html.dark .ou-container .ou-st-val,
+body.dark .ou-container h1,
+body.dark .ou-container h2,
+body.dark .ou-container h3,
+body.dark .ou-container h4,
+body.dark .ou-container .ou-hero-title,
+body.dark .ou-container .ou-stat-val,
+body.dark .ou-container .ou-st-panel-head h4,
+body.dark .ou-container .ou-st-val,
+[data-theme="dark"] .ou-container h1,
+[data-theme="dark"] .ou-container h2,
+[data-theme="dark"] .ou-container h3,
+[data-theme="dark"] .ou-container h4,
+[data-theme="dark"] .ou-container .ou-hero-title,
+[data-theme="dark"] .ou-container .ou-stat-val,
+[data-theme="dark"] .ou-container .ou-st-panel-head h4,
+[data-theme="dark"] .ou-container .ou-st-val {
+	color: var(--ou-dark-text-strong, #f1f5f9) !important;
+}
+html[data-darkmode="true"] .ou-container p,
+html[data-darkmode="true"] .ou-container label,
+html[data-darkmode="true"] .ou-container .ou-field-help,
+html[data-darkmode="true"] .ou-container .ou-stat-sub,
+html[data-darkmode="true"] .ou-container .ou-st-lead,
+html[data-darkmode="true"] .ou-container .ou-st-fw-reason,
+html[data-darkmode="true"] .ou-container .ou-form-field label,
+body[data-darkmode="true"] .ou-container p,
+body[data-darkmode="true"] .ou-container label,
+body[data-darkmode="true"] .ou-container .ou-field-help,
+body[data-darkmode="true"] .ou-container .ou-stat-sub,
+body[data-darkmode="true"] .ou-container .ou-st-lead,
+body[data-darkmode="true"] .ou-container .ou-st-fw-reason,
+body[data-darkmode="true"] .ou-container .ou-form-field label,
+html.dark .ou-container p,
+html.dark .ou-container label,
+html.dark .ou-container .ou-field-help,
+html.dark .ou-container .ou-stat-sub,
+html.dark .ou-container .ou-st-lead,
+html.dark .ou-container .ou-st-fw-reason,
+html.dark .ou-container .ou-form-field label,
+body.dark .ou-container p,
+body.dark .ou-container label,
+body.dark .ou-container .ou-field-help,
+body.dark .ou-container .ou-stat-sub,
+body.dark .ou-container .ou-st-lead,
+body.dark .ou-container .ou-st-fw-reason,
+body.dark .ou-container .ou-form-field label,
+[data-theme="dark"] .ou-container p,
+[data-theme="dark"] .ou-container label,
+[data-theme="dark"] .ou-container .ou-field-help,
+[data-theme="dark"] .ou-container .ou-stat-sub,
+[data-theme="dark"] .ou-container .ou-st-lead,
+[data-theme="dark"] .ou-container .ou-st-fw-reason,
+[data-theme="dark"] .ou-container .ou-form-field label {
+	color: var(--ou-dark-muted, #aab5c2) !important;
+}
+html[data-darkmode="true"] .ou-container .ou-st-key,
+html[data-darkmode="true"] .ou-container .ou-st-foot,
+html[data-darkmode="true"] .ou-container .ou-st-api,
+html[data-darkmode="true"] .ou-container .ou-time-text,
+html.dark .ou-container .ou-st-key,
+html.dark .ou-container .ou-st-foot,
+html.dark .ou-container .ou-st-api,
+html.dark .ou-container .ou-time-text,
+body.dark .ou-container .ou-st-key,
+body.dark .ou-container .ou-st-foot,
+body.dark .ou-container .ou-st-api,
+body.dark .ou-container .ou-time-text,
+[data-theme="dark"] .ou-container .ou-st-key,
+[data-theme="dark"] .ou-container .ou-st-foot,
+[data-theme="dark"] .ou-container .ou-st-api,
+[data-theme="dark"] .ou-container .ou-time-text {
+	color: var(--ou-dark-subtle, #8793a2) !important;
+}
+
+/* 表单输入、下拉框、快捷标签 */
+html[data-darkmode="true"] .ou-container input,
+html[data-darkmode="true"] .ou-container select,
+html[data-darkmode="true"] .ou-container textarea,
+html.dark .ou-container input,
+html.dark .ou-container select,
+html.dark .ou-container textarea,
+body.dark .ou-container input,
+body.dark .ou-container select,
+body.dark .ou-container textarea,
+[data-theme="dark"] .ou-container input,
+[data-theme="dark"] .ou-container select,
+[data-theme="dark"] .ou-container textarea {
+	background: #20262e !important;
+	color: var(--ou-dark-text, #e5eaf0) !important;
+	border-color: var(--ou-dark-border, #414b58) !important;
+	color-scheme: dark;
+}
+html[data-darkmode="true"] .ou-container input::placeholder,
+html[data-darkmode="true"] .ou-container textarea::placeholder,
+html.dark .ou-container input::placeholder,
+html.dark .ou-container textarea::placeholder,
+body.dark .ou-container input::placeholder,
+body.dark .ou-container textarea::placeholder,
+[data-theme="dark"] .ou-container input::placeholder,
+[data-theme="dark"] .ou-container textarea::placeholder {
+	color: #8793a2 !important;
+}
+html[data-darkmode="true"] .ou-container .ou-quick-pill,
+html.dark .ou-container .ou-quick-pill,
+body.dark .ou-container .ou-quick-pill,
+[data-theme="dark"] .ou-container .ou-quick-pill,
+html[data-darkmode="true"] .ou-container .ou-ext-link,
+html.dark .ou-container .ou-ext-link,
+body.dark .ou-container .ou-ext-link,
+[data-theme="dark"] .ou-container .ou-ext-link {
+	background: var(--ou-dark-card-soft, #303741) !important;
+	color: var(--ou-dark-text, #e5eaf0) !important;
+	border-color: var(--ou-dark-border, #414b58) !important;
+}
+html[data-darkmode="true"] .ou-container .ou-quick-pill:hover,
+html.dark .ou-container .ou-quick-pill:hover,
+body.dark .ou-container .ou-quick-pill:hover,
+[data-theme="dark"] .ou-container .ou-quick-pill:hover,
+html[data-darkmode="true"] .ou-container .ou-ext-link:hover,
+html.dark .ou-container .ou-ext-link:hover,
+body.dark .ou-container .ou-ext-link:hover,
+[data-theme="dark"] .ou-container .ou-ext-link:hover {
+	background: var(--ou-dark-card-hover, #353e49) !important;
+	color: var(--ou-dark-blue-text, #9cc8ff) !important;
+}
+
+/* 折叠设置、表格与空状态 */
+html[data-darkmode="true"] .ou-container .ou-details,
+html.dark .ou-container .ou-details,
+body.dark .ou-container .ou-details,
+[data-theme="dark"] .ou-container .ou-details,
+html[data-darkmode="true"] .ou-container .ou-adv-grid,
+html.dark .ou-container .ou-adv-grid,
+body.dark .ou-container .ou-adv-grid,
+[data-theme="dark"] .ou-container .ou-adv-grid,
+html[data-darkmode="true"] .ou-container .ou-table-responsive,
+html.dark .ou-container .ou-table-responsive,
+body.dark .ou-container .ou-table-responsive,
+[data-theme="dark"] .ou-container .ou-table-responsive,
+html[data-darkmode="true"] .ou-container .ou-empty,
+html.dark .ou-container .ou-empty,
+body.dark .ou-container .ou-empty,
+[data-theme="dark"] .ou-container .ou-empty {
+	background: var(--ou-dark-card) !important;
+	border-color: var(--ou-dark-border) !important;
+	color: var(--ou-dark-text) !important;
+}
+html[data-darkmode="true"] .ou-container .ou-summary,
+html.dark .ou-container .ou-summary,
+body.dark .ou-container .ou-summary,
+[data-theme="dark"] .ou-container .ou-summary,
+html[data-darkmode="true"] .ou-container .ou-table th,
+html.dark .ou-container .ou-table th,
+body.dark .ou-container .ou-table th,
+[data-theme="dark"] .ou-container .ou-table th {
+	background: var(--ou-dark-card-soft) !important;
+	color: var(--ou-dark-muted) !important;
+	border-color: var(--ou-dark-border) !important;
+}
+html[data-darkmode="true"] .ou-container .ou-table,
+html.dark .ou-container .ou-table,
+body.dark .ou-container .ou-table,
+[data-theme="dark"] .ou-container .ou-table,
+html[data-darkmode="true"] .ou-container .ou-table td,
+html.dark .ou-container .ou-table td,
+body.dark .ou-container .ou-table td,
+[data-theme="dark"] .ou-container .ou-table td {
+	background: var(--ou-dark-card) !important;
+	color: var(--ou-dark-text) !important;
+	border-color: var(--ou-dark-border-soft) !important;
+}
+html[data-darkmode="true"] .ou-container .ou-table tbody tr:hover td,
+html.dark .ou-container .ou-table tbody tr:hover td,
+body.dark .ou-container .ou-table tbody tr:hover td,
+[data-theme="dark"] .ou-container .ou-table tbody tr:hover td {
+	background: var(--ou-dark-card-hover) !important;
+}
+
+/* 诊断信息与设备状态面板 */
+html[data-darkmode="true"] .ou-container .ou-st-device,
+html[data-darkmode="true"] .ou-container .ou-st-network,
+html[data-darkmode="true"] .ou-container .ou-st-panel,
+html[data-darkmode="true"] .ou-container .ou-st-fw,
+html.dark .ou-container .ou-st-device,
+html.dark .ou-container .ou-st-network,
+html.dark .ou-container .ou-st-panel,
+html.dark .ou-container .ou-st-fw,
+body.dark .ou-container .ou-st-device,
+body.dark .ou-container .ou-st-network,
+body.dark .ou-container .ou-st-panel,
+body.dark .ou-container .ou-st-fw,
+[data-theme="dark"] .ou-container .ou-st-device,
+[data-theme="dark"] .ou-container .ou-st-network,
+[data-theme="dark"] .ou-container .ou-st-panel,
+[data-theme="dark"] .ou-container .ou-st-fw {
+	background: var(--ou-dark-card-soft) !important;
+	border-color: var(--ou-dark-border) !important;
+	color: var(--ou-dark-text) !important;
+}
+html[data-darkmode="true"] .ou-container .ou-st-mini,
+html[data-darkmode="true"] .ou-container .ou-st-art,
+html.dark .ou-container .ou-st-mini,
+html.dark .ou-container .ou-st-art,
+body.dark .ou-container .ou-st-mini,
+body.dark .ou-container .ou-st-art,
+[data-theme="dark"] .ou-container .ou-st-mini,
+[data-theme="dark"] .ou-container .ou-st-art,
+html[data-darkmode="true"] .ou-container .ou-st-api,
+html.dark .ou-container .ou-st-api,
+body.dark .ou-container .ou-st-api,
+[data-theme="dark"] .ou-container .ou-st-api {
+	border-color: var(--ou-dark-border) !important;
+}
+html[data-darkmode="true"] .ou-container .ou-st-details,
+html.dark .ou-container .ou-st-details,
+body.dark .ou-container .ou-st-details,
+[data-theme="dark"] .ou-container .ou-st-details {
+	border-color: var(--ou-dark-border) !important;
+}
+html[data-darkmode="true"] .ou-container .ou-st-details summary,
+html.dark .ou-container .ou-st-details summary,
+body.dark .ou-container .ou-st-details summary,
+[data-theme="dark"] .ou-container .ou-st-details summary {
+	color: var(--ou-dark-blue-text) !important;
+}
+
+/* 状态色改为低亮度底色，避免暗色界面出现大块荧光色 */
+html[data-darkmode="true"] .ou-container .ou-status-pill.ok,
+html.dark .ou-container .ou-status-pill.ok,
+body.dark .ou-container .ou-status-pill.ok,
+[data-theme="dark"] .ou-container .ou-status-pill.ok,
+html[data-darkmode="true"] .ou-container .ou-notice-box.ok,
+html.dark .ou-container .ou-notice-box.ok,
+body.dark .ou-container .ou-notice-box.ok,
+[data-theme="dark"] .ou-container .ou-notice-box.ok,
+html[data-darkmode="true"] .ou-container .ou-chip-ok,
+html.dark .ou-container .ou-chip-ok,
+body.dark .ou-container .ou-chip-ok,
+[data-theme="dark"] .ou-container .ou-chip-ok {
+	background: var(--ou-dark-green-bg) !important;
+	border-color: var(--ou-dark-green-border) !important;
+	color: var(--ou-dark-green-text) !important;
+}
+html[data-darkmode="true"] .ou-container .ou-status-pill.update,
+html.dark .ou-container .ou-status-pill.update,
+body.dark .ou-container .ou-status-pill.update,
+[data-theme="dark"] .ou-container .ou-status-pill.update,
+html[data-darkmode="true"] .ou-container .ou-chip-warn,
+html.dark .ou-container .ou-chip-warn,
+body.dark .ou-container .ou-chip-warn,
+[data-theme="dark"] .ou-container .ou-chip-warn {
+	background: var(--ou-dark-blue-bg) !important;
+	border-color: var(--ou-dark-blue-border) !important;
+	color: var(--ou-dark-blue-text) !important;
+}
+html[data-darkmode="true"] .ou-container .ou-status-pill.err,
+html.dark .ou-container .ou-status-pill.err,
+body.dark .ou-container .ou-status-pill.err,
+[data-theme="dark"] .ou-container .ou-status-pill.err,
+html[data-darkmode="true"] .ou-container .ou-notice-box.err,
+html.dark .ou-container .ou-notice-box.err,
+body.dark .ou-container .ou-notice-box.err,
+[data-theme="dark"] .ou-container .ou-notice-box.err,
+html[data-darkmode="true"] .ou-container .ou-chip-err,
+html.dark .ou-container .ou-chip-err,
+body.dark .ou-container .ou-chip-err,
+[data-theme="dark"] .ou-container .ou-chip-err {
+	background: var(--ou-dark-red-bg) !important;
+	border-color: var(--ou-dark-red-border) !important;
+	color: var(--ou-dark-red-text) !important;
+}
+html[data-darkmode="true"] .ou-container .ou-chip-warn,
+html.dark .ou-container .ou-chip-warn,
+body.dark .ou-container .ou-chip-warn,
+[data-theme="dark"] .ou-container .ou-chip-warn {
+	background: var(--ou-dark-amber-bg) !important;
+	border-color: var(--ou-dark-amber-border) !important;
+	color: var(--ou-dark-amber-text) !important;
+}
+
+/* 兼容只给容器本身加 dark 标记的主题 */
+.ou-container.dark {
+	color-scheme: dark;
+}
+.ou-container.dark .cbi-section,
+.ou-container.dark .ou-card,
+.ou-container.dark .ou-hero-card {
+	background: #292f38 !important;
+	background-image: none !important;
+	border-color: #414b58 !important;
+	color: #e5eaf0 !important;
+}
+.ou-container.dark .ou-stat-card,
+.ou-container.dark .ou-form-card,
+.ou-container.dark .ou-config-summary-card,
+.ou-container.dark .ou-details,
+.ou-container.dark .ou-adv-grid {
+	background: #303741 !important;
+	border-color: #414b58 !important;
+	color: #e5eaf0 !important;
+}
+.ou-container.dark h1,
+.ou-container.dark h2,
+.ou-container.dark h3,
+.ou-container.dark h4,
+.ou-container.dark .ou-stat-val {
+	color: #f1f5f9 !important;
+}
+.ou-container.dark p,
+.ou-container.dark label,
+.ou-container.dark .ou-stat-sub,
+.ou-container.dark .ou-field-help {
+	color: #aab5c2 !important;
+}
+.ou-container.dark input,
+.ou-container.dark select,
+.ou-container.dark textarea {
+	background: #20262e !important;
+	color: #e5eaf0 !important;
+	border-color: #414b58 !important;
+	color-scheme: dark;
+}
