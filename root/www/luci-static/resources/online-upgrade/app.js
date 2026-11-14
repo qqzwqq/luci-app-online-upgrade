@@ -281,6 +281,7 @@
 	/* ---------------- 状态卡片 ---------------- */
 
 	var lastCheck = null;
+	var downloadPreflight = null;
 
 	// 判定矩阵的每一档都给出用户可读文案，界面上既能看出命中哪条规则，
 	// 也能看出是哪一步没通过（机型未匹配 / 架构未声明 / 架构冲突）。
@@ -722,6 +723,8 @@
 	}
 
 	function runCheck() {
+		downloadPreflight = null;
+		showBtn('btn-upgrade', false);
 		setBusy('btn-check', true, '检查中...');
 		setBusy('btn-upgrade', true);
 		setBusy('btn-force', true);
@@ -858,7 +861,7 @@
 		}
 		var labels = ['step-env', 'step-dl', 'step-backup', 'step-flash'];
 		var names = downloadOnlyProgress
-			? ['环境检查', '分段下载', 'SHA256 校验', '设备预检']
+			? ['环境检查', '分段下载', 'SHA256 计算/比对', '设备预检']
 			: ['环境预检', '分段下载', '配置备份', '刷写重启'];
 		labels.forEach(function (id, i) {
 			var node = $(id);
@@ -955,10 +958,14 @@
 		pollTimer = setInterval(tick, 1000);
 	}
 
-	function startUpgrade(isForce) {
-		var ci = lastCheck && lastCheck.compatibility;
+	function startUpgrade(isForce, usePreflight) {
+		var source = usePreflight ? downloadPreflight : lastCheck;
+		var ci = source && source.compatibility;
 		var lv = compatLevel(ci);
-		var same = sameVersionChecked();
+		var ver = (source && source.version) || {};
+		var relation = ver.relation || (source && source.relation) || 'unknown';
+		var same = relation === 'same';
+		var confirmVersion = usePreflight === true && (relation === 'series' || relation === 'unknown' || ver.state === 'incomparable');
 		if (!isForce && lv !== 'compatible') {
 			hint('check-result', '当前目标固件未通过适配判定，需用「强制更新」并显式确认后才能继续', 'warn');
 			return;
@@ -968,33 +975,35 @@
 			hint('check-result', '当前固件与 Release 同版本，普通升级不适用；如需重装请使用「强制升级」', 'warn');
 			return;
 		}
-		var title = isForce
+		var title = confirmVersion ? '确认使用已下载固件升级' : (isForce
 			? (same ? '同版本重装固件' : '强制更新固件')
-			: '开始在线固件升级';
-		var message = isForce
-			? (same
-				? '当前固件与 Release 为同一版本，这是重装而不是升级。\n强制模式会跳过适配判定与版本方向检查。\n系统仍会备份配置、下载并校验固件后再刷写。\n请勿断电！'
-				: '强制模式会跳过适配判定与版本方向检查（目标固件可能无法确认是否适配本机，或版本低于当前）。\n系统仍会备份配置、下载并校验固件后再刷写。\n请勿断电！')
-			: '系统将自动：备份配置 → 多线程下载固件 → 校验 → 刷写（自动恢复配置） → 重启。\n请勿断电！';
+			: '开始在线固件升级');
+		var message = confirmVersion
+			? ('目标固件版本为 ' + (downloadPreflight.version || '未能完整识别') + '，本机与目标版本无法自动比较。\\n设备兼容性预检已通过；点击确认后仍会重新核对固件、执行 sysupgrade -T、备份配置，再进入刷写。\\n' + (downloadPreflight.verified ? 'SHA256 已与可信校验值匹配。' : '上游未提供可信 SHA256，本地仅计算并记录了哈希，不能证明文件来源完整性。') + '\\n请确认目标版本和固件来源，并确认当前启动介质就是你准备升级的设备。此操作会刷写并重启！')
+			: (isForce
+				? (same
+					? '当前固件与 Release 为同一版本，这是重装而不是升级。\\n强制模式会跳过适配判定与版本方向检查。\\n系统仍会备份配置、下载并校验固件后再刷写。\\n请勿断电！'
+					: '强制模式会跳过适配判定与版本方向检查（目标固件可能无法确认是否适配本机，或版本低于当前）。\\n系统仍会备份配置、下载并校验固件后再刷写。\\n请勿断电！')
+				: '系统将自动：备份配置 → 多线程下载固件 → 校验 → 刷写（自动恢复配置） → 重启。\\n请勿断电！');
 		ouConfirm({
 			tone: isForce ? 'danger' : 'primary',
 			eyebrow: isForce ? '强制刷写' : '在线升级',
 			title: title,
 			message: message,
-			confirmText: isForce ? (same ? '确认重装' : '继续强制升级') : '开始升级'
+			confirmText: confirmVersion ? '确认并继续升级' : (isForce ? (same ? '确认重装' : '继续强制升级') : '开始升级')
 		}).then(function (ok) {
-			if (ok) doStartUpgrade(isForce);
+			if (ok) doStartUpgrade(isForce, confirmVersion);
 		});
 	}
 
-	function doStartUpgrade(isForce) {
+	function doStartUpgrade(isForce, confirmVersion) {
 		var same = sameVersionChecked();
 		setBusy('btn-upgrade', true, '启动中...');
 		setBusy('btn-force', true, '启动中...');
 		stopPoll();
 		snapshotStatus().then(function () {
 			pollFilter = true;
-			return ubus('start_upgrade', { force: isForce === true });
+			return ubus('start_upgrade', { force: isForce === true, confirm_version: confirmVersion === true });
 		}).then(function (r) {
 			// 同上：撞锁时后端返回 {ok:false,error}，ubus 不会 reject。若按「已启动」
 			// 继续，两个按钮会被隐藏并进入对别的任务的无效轮询，页面卡死只能刷新。
@@ -1229,6 +1238,22 @@
 		});
 	}
 
+	function renderDownloadReady(st) {
+		downloadPreflight = st && st.result ? st.result : null;
+		var compat = downloadPreflight && downloadPreflight.compatibility;
+		var relation = downloadPreflight && downloadPreflight.relation;
+		var ready = !!(downloadPreflight && downloadPreflight.dry_run === true && compat && compat.level === 'compatible' && (relation === 'series' || relation === 'unknown'));
+		showBtn('btn-upgrade', ready);
+		if (ready) {
+			setBusy('btn-upgrade', false, '使用已下载固件升级');
+			$('btn-upgrade').title = '复用已下载固件；若 Release 资产发生变化将重新下载，并再次执行预检';
+		}
+		var msg = downloadPreflight && downloadPreflight.verified
+			? '固件下载完成，SHA256 与可信校验值一致，设备兼容性预检通过。'
+			: '固件下载完成；未提供可信 SHA256，仅记录本地哈希，设备兼容性预检通过。';
+		hint('task-hint', ready ? msg + ' 可使用已下载固件进入升级确认。' : msg + ' 当前没有满足升级条件的确认入口。', ready ? 'ok' : 'warn');
+	}
+
 	function pollDownload() {
 		stopPoll();
 		var skipped = 0;
@@ -1262,7 +1287,7 @@
 						pill.className = 'ou-status-pill ok';
 						pill.innerHTML = '<span class="ou-dot ok"></span> 已完成';
 					}
-					hint('task-hint', ' 固件已下载并完成预检；未执行刷写或重启', 'ok');
+					renderDownloadReady(st);
 					refreshTasks();
 				} else if (st.stage === 'failed' || st.stage === 'check_failed') {
 					stopPoll();
@@ -2783,7 +2808,7 @@
 		watchLuCIDarkTheme();
 		$('btn-check').addEventListener('click', runCheck);
 		$('btn-download-firmware').addEventListener('click', startDownload);
-		$('btn-upgrade').addEventListener('click', function () { startUpgrade(false); });
+		$('btn-upgrade').addEventListener('click', function () { startUpgrade(false, !!downloadPreflight); });
 		$('btn-force').addEventListener('click', function () { startUpgrade(true); });
 		$('btn-backup').addEventListener('click', runBackup);
 		$('btn-download').addEventListener('click', downloadBackup);
@@ -2847,8 +2872,15 @@
 				return;
 			}
 			if (st.stage === 'flashing') { showRebootOverlay(); return; }
-			if (st.stage === 'downloading' || st.stage === 'paused' || st.stage === 'downloaded' ||
-				st.stage === 'saving' || st.stage === 'backing_up' || st.stage === 'backup_done') {
+			if (st.stage === 'downloaded') {
+				setProgressMode(true);
+				renderProgress(st);
+				renderDownloadReady(st);
+			} else if (st.stage === 'downloading' || st.stage === 'paused' || st.stage === 'verifying') {
+				setProgressMode(true);
+				renderProgress(st);
+				pollDownload();
+			} else if (st.stage === 'saving' || st.stage === 'backing_up' || st.stage === 'backup_done') {
 				renderProgress(st);
 				pollUpgrade();
 			}
