@@ -1240,7 +1240,8 @@
 					if (!isFreshRun(st)) {
 						if (++skipped > 20) {
 							stopPoll();
-							setBusy('btn-start-download', false, '开始下载');
+												setBusy('btn-start-download', false, '开始下载');
+							setBusy('btn-download-firmware', false, '下载并预检');
 							hint('task-hint', '未读取到本次下载任务状态，请查看运行日志', 'err');
 						}
 						return;
@@ -1254,6 +1255,7 @@
 				if (st.stage === 'downloaded') {
 					stopPoll();
 					setBusy('btn-start-download', false, '开始下载');
+					setBusy('btn-download-firmware', false, '下载并预检');
 					var card = $('card-progress');
 					var pill = card && card.querySelector('.ou-status-pill');
 					if (pill) {
@@ -1265,6 +1267,7 @@
 				} else if (st.stage === 'failed' || st.stage === 'check_failed') {
 					stopPoll();
 					setBusy('btn-start-download', false, '开始下载');
+					setBusy('btn-download-firmware', false, '下载并预检');
 					var pill = $('card-progress') && $('card-progress').querySelector('.ou-status-pill');
 					if (pill) {
 						pill.className = 'ou-status-pill err';
@@ -1282,6 +1285,7 @@
 
 	function startDownload() {
 		setBusy('btn-start-download', true, '启动中...');
+		setBusy('btn-download-firmware', true, '启动中...');
 		setProgressMode(true);
 		snapshotStatus().then(function () {
 			pollFilter = true;
@@ -1289,6 +1293,7 @@
 		}).then(function (r) {
 			if (r && r.ok === false) {
 				setBusy('btn-start-download', false, '开始下载');
+				setBusy('btn-download-firmware', false, '下载并预检');
 				hint('task-hint', ' ' + (r.error || '下载未能启动'), 'err');
 				return refreshTasks();
 			}
@@ -1298,6 +1303,7 @@
 			return refreshTasks();
 		}).catch(function (e) {
 			setBusy('btn-start-download', false, '开始下载');
+			setBusy('btn-download-firmware', false, '下载并预检');
 			hint('task-hint', ' 启动下载失败: ' + e.message, 'err');
 			return refreshTasks();
 		});
