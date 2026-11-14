@@ -53,7 +53,7 @@ async fn cmd_check() -> i32 {
 
 fn usage() -> i32 {
     eprintln!(
-        "usage: online-upgrade <check|upgrade [--force]|download|pause|resume|cancel|tasks|task-delete <id> [--force]|backup|restore <file>|status|clear-log|probe|plugin-info|plugin-check|plugin-update|states|refresh [--only <model>] [--force]|device|probe-repo <url>|netcheck|clear-cache>"
+        "usage: online-upgrade <check|upgrade [--force] [--confirm-version]|download|pause|resume|cancel|tasks|task-delete <id> [--force]|backup|restore <file>|status|clear-log|probe|plugin-info|plugin-check|plugin-update|states|refresh [--only <model>] [--force]|device|probe-repo <url>|netcheck|clear-cache>"
     );
     2
 }
@@ -113,7 +113,7 @@ fn main() {
                 .enable_all()
                 .build()
                 .unwrap()
-                .block_on(upgrade::run(force))
+                .block_on(upgrade::run(force, args.iter().any(|a| a == "--confirm-version")))
         }
         "backup" => util::backup(),
         "download" => tokio::runtime::Builder::new_multi_thread()
