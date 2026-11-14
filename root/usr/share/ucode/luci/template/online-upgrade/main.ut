@@ -871,6 +871,6 @@
 </div>
 
 <script>window.__OU_SESSION__ = '{{ ctx.authsession || "" }}';</script>
-<script src="{{ resource }}/online-upgrade/app.js?v=2.6.20"></script>
+<script src="{{ resource }}/online-upgrade/app.js?v=2.6.21"></script>
 
 {% include('footer') %}
