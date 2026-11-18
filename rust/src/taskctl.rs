@@ -26,6 +26,8 @@ pub const TASKS_FILE: &str = "/root/.online-upgrade-tasks.json";
 pub const LOCK_FILE: &str = "/tmp/online-upgrade.lock";
 /// 归属下载任务的固件产物。
 pub const FIRMWARE_FILE: &str = "/tmp/firmware.img.gz";
+pub const FIRMWARE_TS: &str = "/tmp/firmware.img.gz.ts";
+pub const FIRMWARE_PARTS: &str = "/tmp/firmware.img.gz.parts.json";
 /// 闪存中保留的历史记录条数上限。
 pub const MAX_TASKS: usize = 30;
 
@@ -334,7 +336,9 @@ impl TaskStore {
         s.load();
         // 插件更新在安装阶段会被 apk 的 postinst（重启 rpcd）连带杀掉，
         // 来不及写终态；读取时收敛一次，避免界面永久停在「更新中」。
-        if s.reconcile_orphans() > 0 {
+        let reconciled = s.reconcile_orphans();
+        let pruned = s.prune_completed_plugin();
+        if reconciled + pruned > 0 {
             let _ = s.save();
         }
         s
@@ -375,28 +379,40 @@ impl TaskStore {
     ///     直接移除任务记录并清掉内存盘上的安装包；
     ///   - 未下完 → 标记 failed，明确告知重新发起，界面不再卡在「更新中」。
     pub fn reconcile_orphans(&mut self) -> usize {
-        if task_alive() {
-            return 0;
-        }
+        if task_alive() { return 0; }
+        let _ = fs::remove_file(LOCK_FILE);
         let mut changed = 0;
         let mut keep: Vec<Task> = Vec::with_capacity(self.tasks.len());
         for mut t in self.tasks.drain(..) {
-            let orphan_plugin = t.kind == KIND_PLUGIN
-                && matches!(t.state.as_str(), ST_RUNNING | ST_PAUSED);
-            if !orphan_plugin {
+            if !matches!(t.state.as_str(), ST_RUNNING | ST_PAUSED) {
                 keep.push(t);
                 continue;
             }
             changed += 1;
-            if t.total > 0 && t.done >= t.total {
-                cleanup_plugin_artifacts();
-                continue; // 已完成下载与安装，删掉记录
+            if t.kind == KIND_PLUGIN {
+                if t.total > 0 && t.done >= t.total {
+                    cleanup_plugin_artifacts();
+                    continue;
+                }
+                t.finish(ST_FAILED, "任务进程已退出（可能被中断），请重新发起插件更新");
+                keep.push(t);
+                continue;
             }
-            t.finish(ST_FAILED, "任务进程已退出（可能被中断），请重新发起插件更新");
+            cleanup_firmware_artifacts();
+            t.finish(ST_FAILED, "下载进程已退出（可能被中断），临时文件已清理，请重新开始下载");
             keep.push(t);
         }
         self.tasks = keep;
         changed
+    }
+
+    pub fn prune_completed_plugin(&mut self) -> usize {
+        if task_alive() { return 0; }
+        let before = self.tasks.len();
+        self.tasks.retain(|t| !(t.kind == KIND_PLUGIN && t.state == ST_DONE));
+        let removed = before - self.tasks.len();
+        if removed > 0 { cleanup_plugin_artifacts(); }
+        removed
     }
 
     /// 原子地持久化历史。
@@ -534,6 +550,14 @@ fn task_alive() -> bool {
         return false;
     }
     std::path::Path::new(&format!("/proc/{pid}")).exists()
+}
+
+pub fn cleanup_firmware_artifacts() -> usize {
+    let mut removed = 0;
+    for path in [FIRMWARE_FILE, FIRMWARE_TS, FIRMWARE_PARTS] {
+        if fs::remove_file(path).is_ok() { removed += 1; }
+    }
+    removed
 }
 
 pub fn should_purge(tasks: &[Task]) -> bool {

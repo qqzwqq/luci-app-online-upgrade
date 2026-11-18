@@ -535,6 +535,13 @@ fn asset_arch(fname_norm: &str) -> (Arch, Vec<String>) {
         return (Arch::Aarch64, evidence);
     }
 
+    // 历史 X86 产物首段机型标识优先，忽略后续误标的 aarch64 token。
+    let first_token = fname_norm.split('-').next().unwrap_or("");
+    let head = first_token.to_ascii_lowercase();
+    if head == "x86" || head.starts_with("x86_") || head == "x86-64" {
+        return (Arch::X86, vec![format!("{first_token}(机型段优先)")]);
+    }
+
     let mut found: Option<Arch> = None;
     for (arch, list) in [
         (Arch::Aarch64, AARCH64),
@@ -1139,6 +1146,17 @@ mod tests {
         assert_eq!(r.model_check, "rule");
         assert!(r.can_upgrade);
         assert!(r.basis.iter().any(|b| b.contains("rockchip/armv8")));
+    }
+
+    #[test]
+    fn x86_head_token_overrides_mislabeled_aarch64() {
+        let (arch, evidence) = asset_arch("x86-netwiz-fm350-aarch64-26.11.16-efi.img.gz");
+        assert_eq!(arch, Arch::X86);
+        assert!(evidence.iter().any(|x| x.contains("机型段优先")));
+        let (arch2, _) = asset_arch("x86-64-netwiz-fm350-aarch64-26.11.16-efi.img.gz");
+        assert_eq!(arch2, Arch::X86);
+        let (arch3, _) = asset_arch("h5000m-seluse-aarch64-26.11.16-sysupgrade.bin");
+        assert_eq!(arch3, Arch::Aarch64);
     }
 
     #[test]
