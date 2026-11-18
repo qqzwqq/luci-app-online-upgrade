@@ -1,0 +1,87 @@
+name: PR Validation
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-validation-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  version-check:
+    name: 版本一致性检查
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v7
+      - name: Check package and frontend versions
+        run: |
+          set -eu
+          pkg_ver=$(sed -n 's/^PKG_VERSION:=//p' Makefile)
+          pkg_rel=$(sed -n 's/^PKG_RELEASE:=//p' Makefile)
+          cargo_ver=$(sed -n 's/^version = "\(.*\)"$/\1/p' rust/Cargo.toml)
+          lock_ver=$(awk '/name = "online-upgrade"/ { found=1; next } found && /^version = / { gsub(/"/, "", $3); print $3; exit }' rust/Cargo.lock)
+          tpl="root/usr/share/ucode/luci/template/online-upgrade/main.ut"
+          js_ver=$(grep -o 'app\.js?v=[0-9A-Za-z._-]*' "$tpl" | head -1 | sed 's/.*v=/v/')
+          css_ver=$(grep -o 'style\.css?v=[0-9A-Za-z._-]*' "$tpl" | head -1 | sed 's/.*v=/v/')
+          echo "Makefile=$pkg_ver-r$pkg_rel Cargo.toml=$cargo_ver Cargo.lock=$lock_ver app.js=$js_ver style.css=$css_ver"
+          [ -n "$pkg_ver" ] && [ "$pkg_ver" = "$cargo_ver" ] && [ "$pkg_ver" = "$lock_ver" ]
+          [ "v$pkg_ver" = "$js_ver" ] && [ "v$pkg_ver" = "$css_ver" ]
+          case "$pkg_rel" in ''|*[!0-9]*) echo "PKG_RELEASE 非法: $pkg_rel" >&2; exit 1 ;; esac
+
+  rust-tests:
+    name: Rust 单元测试
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v7
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust -> target
+      - name: Run locked unit tests
+        working-directory: rust
+        run: cargo test --locked
+
+  rust-build:
+    name: Rust 静态交叉编译 (${{ matrix.target }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: aarch64-unknown-linux-musl
+            package: gcc-aarch64-linux-gnu
+            cc_env: CC_aarch64_unknown_linux_musl=aarch64-linux-gnu-gcc
+          - target: x86_64-unknown-linux-musl
+            package: musl-tools
+            cc_env: CC_x86_64_unknown_linux_musl=musl-gcc
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v7
+      - name: Install cross C toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ${{ matrix.package }}
+      - name: Setup Rust target
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust -> target
+          key: ${{ matrix.target }}
+      - name: Build static musl binary
+        working-directory: rust
+        env:
+          RUSTFLAGS: "-C link-self-contained=yes -C linker=rust-lld"
+        run: |
+          env ${{ matrix.cc_env }} cargo build --release --locked --target ${{ matrix.target }}
+          file target/${{ matrix.target }}/release/online-upgrade
