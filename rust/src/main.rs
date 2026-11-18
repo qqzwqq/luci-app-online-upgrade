@@ -180,7 +180,11 @@ fn main() {
             }
         }
         "tasks" => {
-            println!("{}", taskctl::TaskStore::open().to_json().dump());
+            let store = taskctl::TaskStore::open();
+            let active = store.tasks().iter()
+                .any(|t| matches!(t.state.as_str(), taskctl::ST_RUNNING | taskctl::ST_PAUSED));
+            if !active { status::clear_task_stage(); }
+            println!("{}", store.to_json().dump());
             0
         }
         "task-delete" => match args.get(2) {
@@ -201,6 +205,9 @@ fn main() {
                         } else {
                             0
                         };
+                        let active = store.tasks().iter()
+                            .any(|x| matches!(x.state.as_str(), taskctl::ST_RUNNING | taskctl::ST_PAUSED));
+                        if !active { status::clear_task_stage(); }
                         println!(
                             "{}",
                             ok_json(vec![

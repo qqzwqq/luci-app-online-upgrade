@@ -279,11 +279,18 @@ fn same_version_reason(target: &crate::version::Version, rebuilt: Option<&str>) 
 
 /// 判定依据说明：把「本地版本是多少、从哪取的」写进文案，让用户知道自己在确认什么。
 fn local_basis(local: &crate::localver::LocalVersion, cur: &crate::version::Version) -> String {
-    if local.source_text.is_empty() {
+    let mut text = if local.source_text.is_empty() {
         format!("当前 {}", cur.as_display())
     } else {
         format!("当前 {}，依据：{}", cur.as_display(), local.source_text)
+    };
+    if local.basis_score > 0 {
+        text.push_str(&format!("（依据强度 {}/100）", local.basis_score));
     }
+    if !local.advice.is_empty() {
+        text.push_str(&format!("；{}", local.advice));
+    }
+    text
 }
 
 /// 版本与更新判定。
@@ -306,7 +313,7 @@ fn decide(
     local: &crate::localver::LocalVersion,
     local_ver: Option<&crate::version::Version>,
 ) -> Decision {
-    let weak = local.confidence != crate::localver::Confidence::Strong;
+    let weak = local.confidence != crate::localver::Confidence::Strong || local.basis_score < 60;
 
     // 两段版本（如 25.12）在部分自用固件仓库中表示“系列/分支”，
     // 并不等价于补零后的 25.12.0。若本机是同系列的完整版本
@@ -696,7 +703,7 @@ pub async fn check(client: &reqwest::Client) -> Value {
     let (cur_id, cur_release, cur_revision) = read_distrib();
     let target_ver = crate::version::pick(&fw_version);
     // 本机版本按可信度逐级探测（自用 SNAPSHOT 构建会退到构建时间）。
-    let local = crate::localver::detect();
+    let local = crate::localver::detect_with_target(target_ver.as_ref());
     let local_ver = local.comparable(target_ver.as_ref());
     let local_display = match &local_ver {
         Some(v) => v.as_display(),
@@ -1169,6 +1176,9 @@ mod tests {
                 crate::localver::Confidence::None
             },
             build_ymd: None,
+            basis_score: if crate::version::pick(value).is_some() { 85 } else { 0 },
+            evidence: vec!["测试版本来源".into()],
+            advice: String::new(),
         }
     }
 
@@ -1181,6 +1191,9 @@ mod tests {
             source_text: format!("固件构建时间 {y}-{m:02}-{d:02}（弱依据，仅能与日期型标签比较）"),
             confidence: crate::localver::Confidence::Weak,
             build_ymd: Some((y, m, d)),
+            basis_score: 45,
+            evidence: vec!["测试构建日期".into()],
+            advice: String::new(),
         }
     }
 

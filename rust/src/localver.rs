@@ -17,7 +17,8 @@
 // 这里不做任何猜测：所有来源都解析不出版本时，调用方会得到
 // `Confidence::None`，并如实上报“无法比较”。
 
-use crate::version::{civil_from_days, pick, Version};
+use crate::version::{civil_from_days, days_from_civil, pick, Version};
+use std::cmp::Ordering;
 use std::time::UNIX_EPOCH;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -50,6 +51,12 @@ pub struct LocalVersion {
     pub confidence: Confidence,
     /// 构建日期（年、月、日），仅当来源为构建时间时设置。
     pub build_ymd: Option<(i64, u32, u32)>,
+    /// 判定依据强度（0~100）：由来源等级、日期窗口与多源交叉验证共同决定。
+    pub basis_score: u8,
+    /// 依据明细：每个来源解析出了什么、是否一致。
+    pub evidence: Vec<String>,
+    /// 依据不足时的可操作建议（写版本文件 / 升级一次刷新锚点）。
+    pub advice: String,
 }
 
 impl LocalVersion {
@@ -61,6 +68,9 @@ impl LocalVersion {
             source_text: String::new(),
             confidence: Confidence::None,
             build_ymd: None,
+            basis_score: 0,
+            evidence: vec!["所有版本来源均无法解析".into()],
+            advice: "在固件中写入 /etc/online-upgrade/firmware-version 可获得强依据".into(),
         }
     }
 
@@ -94,11 +104,31 @@ impl LocalVersion {
     }
 }
 
-/// 构建流水线可能写入 rootfs 的版本文件。
-const VERSION_FILES: [(&str, &str); 4] = [
+/// 构建流水线可能写入的固件版本标记文件。
+///
+/// 首选路径放在插件自己的配置目录 `/etc/online-upgrade/`，文件名 `firmware-version`
+/// 语义明确（固件版本），与同目录下的其他用途文件互不冲突，也不同于
+/// 插件自身版本文件 `/usr/share/online-upgrade/version`（那是插件版本，不是固件版本）。
+/// 该路径不在 /lib/upgrade/keep.d 保留清单内，因此 sysupgrade 后随新固件刷新，
+/// 不会出现旧固件版本标记残留。
+///
+/// 出于兼容，同一专用目录下也识别 `online-upgrade-version` 这个文件名，
+/// 以及早期文档建议的旧路径 `/etc/online-upgrade-version`。三者任选其一即可，
+/// 插件按下面的数组顺序取第一个可解析的来源；若多处同时存在且版本不一致，
+/// 多源交叉验证会判为冲突并下调依据强度，因此固件只需注入其中一处。
+/// 其余为通用构建版本文件。
+const VERSION_FILES: [(&str, &str); 6] = [
+    (
+        "/etc/online-upgrade/firmware-version",
+        "构建写入的固件版本标记 /etc/online-upgrade/firmware-version",
+    ),
+    (
+        "/etc/online-upgrade/online-upgrade-version",
+        "固件版本标记（兼容文件名）/etc/online-upgrade/online-upgrade-version",
+    ),
     (
         "/etc/online-upgrade-version",
-        "构建写入的版本文件 /etc/online-upgrade-version",
+        "旧版固件版本标记 /etc/online-upgrade-version（兼容读取）",
     ),
     (
         "/etc/build-version",
@@ -134,6 +164,72 @@ fn kv(text: &str, key: &str) -> Option<String> {
         }
     }
     None
+}
+
+/// 结构化固件版本标记：CI 构建期写入的 `firmware-version` 文件。
+///
+/// 推荐格式（shell 风格 key=value，字段名稳定）：
+///   DEVICE='H5000M'
+///   ARCH='aarch64'
+///   BUILD_TIME='2026-11-17T01:35:20+08:00'
+///   BUILD_SEQ='3'
+///   VERSION='26.11.17'
+///
+/// 兼容处理：任何字段缺失都不影响版本判定；完全没有 VERSION 字段时，
+/// 退化为「把整个文件当纯版本号」（历史单行格式 `26.11.17`）。
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct FirmwareMarker {
+    pub device: Option<String>,
+    pub arch: Option<String>,
+    pub build_time: Option<String>,
+    pub build_seq: Option<String>,
+    pub version: Option<String>,
+    /// 是否解析到了结构化字段（而非纯版本号单行）。
+    pub structured: bool,
+}
+
+impl FirmwareMarker {
+    pub fn parse(text: &str) -> FirmwareMarker {
+        let mut m = FirmwareMarker::default();
+        m.device = kv(text, "DEVICE");
+        m.arch = kv(text, "ARCH");
+        m.build_time = kv(text, "BUILD_TIME");
+        m.build_seq = kv(text, "BUILD_SEQ");
+        m.version = kv(text, "VERSION");
+        m.structured = m.device.is_some()
+            || m.arch.is_some()
+            || m.build_time.is_some()
+            || m.build_seq.is_some()
+            || m.version.is_some();
+        m
+    }
+
+    /// 返回应当交给 `pick()` 的版本文本：结构化时只取 VERSION 字段，
+    /// 否则返回原始文本（兼容单行纯版本号）。
+    pub fn version_text<'a>(&'a self, raw: &'a str) -> &'a str {
+        match (&self.version, self.structured) {
+            (Some(v), true) => v.as_str(),
+            _ => raw.trim(),
+        }
+    }
+
+    /// 供界面/日志展示的附加信息（机型、架构、构建时间、当日构建序号）。
+    pub fn evidence_lines(&self) -> Vec<String> {
+        let mut out = Vec::new();
+        if let Some(v) = &self.device {
+            out.push(format!("标记机型 {v}"));
+        }
+        if let Some(v) = &self.arch {
+            out.push(format!("标记架构 {v}"));
+        }
+        if let Some(v) = &self.build_time {
+            out.push(format!("标记构建时间 {v}"));
+        }
+        if let Some(v) = &self.build_seq {
+            out.push(format!("当日第 {v} 次编译"));
+        }
+        out
+    }
 }
 
 /// 镜像构建时间，取自发行标记文件的 mtime。
@@ -206,33 +302,120 @@ fn upgrade_anchor() -> Option<String> {
     Some(v)
 }
 
-/// 锚点的前三段是否与 rootfs 构建日期一致（兼容 2 位 / 4 位年份）。
-/// 不一致说明设备可能被手动刷成了别的固件，此时不得采信锚点。
-fn anchor_matches_build(anchor: &Version, y: i64, m: u32, d: u32) -> bool {
-    let nums = &anchor.nums;
-    if nums.len() < 3 {
-        return false;
+/// 锚点可信度：不再要求与构建日期逐日相等。
+///
+/// overlay copy-up、配置恢复都会改动 rootfs mtime，用这个并不可靠的
+/// 基准去否定插件自己写入的「上次成功升级版本」是逻辑倒置：设备因此
+/// 退到 build_time 弱依据，版本被抬高且所有比较都被标成 suspect。
+/// 现在改为「锚点日期不晚于构建日期且差值在 14 天窗口内」即采信，
+/// 超出窗口仍采信但降低依据强度并给出核对建议。
+///
+/// 注意：`last_upgrade_version` 记录的是「上次经本插件成功升级的版本」，
+/// 不是当前运行固件版本。用户在插件之外手动刷机后，锚点会滞留旧值；
+/// 单看日期窗口无法区分「mtime 漂移」与「固件真的换了」，因此
+/// `detect_with_target()` 在比较前先用 `anchor_is_stale()` 做交叉核对。
+/// 交叉核对：锚点是否已过期（当前固件很可能就是目标版本）。
+///
+/// 日期型标签（自用构建的 `YY.MM.DD`）与固件构建日期同名时，
+/// 「构建日期 == 目标版本」是当前固件即为目标版本的正面证据。
+/// 此时若锚点版本更旧，说明用户在插件之外刷入过新固件而
+/// `last_upgrade_version` 未更新；再拿锚点当本机版本就会把
+/// 同版本误判成 `newer` / `has_update=true`。
+/// 返回按目标年份位数对齐后的构建日期版本，供调用方作为本机版本。
+pub fn anchor_is_stale(
+    anchor: &Version,
+    build: Option<(i64, u32, u32)>,
+    target: Option<&Version>,
+) -> Option<Version> {
+    let target = target?;
+    if !target.is_date_tag() || anchor.compare(target) != Ordering::Less {
+        return None;
     }
-    let ay = nums[0] as i64;
-    let year_ok = if ay >= 1900 { ay == y } else { ay == y % 100 };
-    year_ok && nums[1] as u32 == m && nums[2] as u32 == d
+    let (y, m, d) = build?;
+    let four_digit = target.nums.first().copied().unwrap_or(0) >= 1900;
+    let build_version = crate::version::from_ymd(
+        if four_digit { y as u64 } else { (y % 100) as u64 },
+        m,
+        d,
+    )?;
+    (build_version.compare(target) == Ordering::Equal).then_some(build_version)
 }
 
-pub fn detect() -> LocalVersion {
+fn anchor_trust(anchor: &Version, build: Option<(i64, u32, u32)>) -> (u8, String, bool) {
+    let Some((y, m, d)) = build else {
+        return (60, "锚点可用，但未能与固件构建日期核对".into(), true);
+    };
+    if anchor.nums.len() < 3 {
+        return (45, "锚点不是日期型版本，仅作参考".into(), true);
+    }
+    let ay = anchor.nums[0] as i64;
+    let year = if ay >= 1900 { ay } else { 2000 + ay };
+    let (am, ad) = (anchor.nums[1] as u32, anchor.nums[2] as u32);
+    if !(1..=12).contains(&am) || !(1..=31).contains(&ad) {
+        return (40, "锚点日期字段越界，仅作参考".into(), true);
+    }
+    let delta = days_from_civil(y, m, d) - days_from_civil(year, am, ad);
+    let stamp = format!("{y}-{m:02}-{d:02}");
+    if delta == 0 {
+        (90, format!("锚点日期与固件构建日期 {stamp} 一致"), true)
+    } else if (0..=14).contains(&delta) {
+        (
+            75,
+            format!("锚点日期早于构建日期 {stamp} 共 {delta} 天，在合理窗口内"),
+            true,
+        )
+    } else if delta < 0 {
+        let late = -delta;
+        if late > 30 {
+            return (
+                30,
+                format!("锚点日期晚于构建日期 {stamp} 共 {late} 天，疑似残留锚点，不予采信"),
+                false,
+            );
+        }
+        (
+            45,
+            format!("锚点日期晚于构建日期 {stamp} 共 {late} 天，可能不是本机当前固件，建议核对"),
+            true,
+        )
+    } else {
+        (
+            40,
+            format!("锚点日期早于构建日期 {stamp} 共 {delta} 天，超出 14 天窗口，可能已过期"),
+            true,
+        )
+    }
+}
+
+/// 本机版本检测：在采用升级锚点前交叉核对锚点是否已过期。
+///
+/// `target` 是本次比较的云端目标版本；不需要比较时可传 `None`，
+/// 此时不做锚点过期交叉核对，仅按来源优先级与日期窗口判定。
+pub fn detect_with_target(target: Option<&Version>) -> LocalVersion {
     let rel = read_file("/etc/openwrt_release").unwrap_or_default();
     let osrel = read_file("/etc/os-release").unwrap_or_default();
 
     // (来源标识, 来源说明, 原始值, 可信度)
     let mut cands: Vec<(String, String, String, Confidence)> = Vec::new();
+    // 结构化固件版本标记的附加信息（机型/架构/构建时间/构建序号），
+    // 命中时并入结果 evidence，供界面与日志展示。
+    let mut marker_evidence: Vec<String> = Vec::new();
 
     for (path, label) in VERSION_FILES {
         if let Some(v) = read_file(path) {
             let v = v.trim().to_string();
             if !v.is_empty() {
+                // 固件版本标记可能是结构化多行格式。结构化时只把 VERSION 字段
+                // 交给 pick()，否则 BUILD_TIME / BUILD_SEQ 里的数字会被误当版本。
+                let marker = FirmwareMarker::parse(&v);
+                let value = marker.version_text(&v).to_string();
+                if marker.structured {
+                    marker_evidence.extend(marker.evidence_lines());
+                }
                 cands.push((
                     format!("version_file:{path}"),
                     label.to_string(),
-                    v,
+                    value,
                     Confidence::Strong,
                 ));
             }
@@ -299,9 +482,35 @@ pub fn detect() -> LocalVersion {
         }
     }
 
+    // 多源交叉验证：记录每个来源解析出的版本，一致则提升依据强度。
+    let mut evidence: Vec<String> = Vec::new();
+    evidence.extend(marker_evidence.iter().cloned());
+    let mut parsed: Vec<(String, String)> = Vec::new();
+    for (key, _, value, _) in &cands {
+        if let Some(v) = pick(value) {
+            evidence.push(format!("{key} → {}", v.as_display()));
+            parsed.push((key.clone(), v.as_display()));
+        }
+    }
+    let distinct: std::collections::BTreeSet<&str> =
+        parsed.iter().map(|(_, v)| v.as_str()).collect();
+    let corroborated = parsed.len() >= 2 && distinct.len() == 1;
+    if corroborated {
+        evidence.push("多个独立来源版本一致，已交叉验证".into());
+    } else if distinct.len() > 1 {
+        evidence.push("不同来源版本不一致，依据强度已下调".into());
+    }
+
     if let Some(i) = select(&cands) {
         let (key, label, value, conf) = cands[i].clone();
         let version = pick(&value);
+        let mut score: u8 = if conf == Confidence::Strong { 85 } else { 55 };
+        if corroborated {
+            score = score.saturating_add(10);
+        }
+        if distinct.len() > 1 {
+            score = score.saturating_sub(20);
+        }
         return LocalVersion {
             version,
             raw: value,
@@ -309,34 +518,85 @@ pub fn detect() -> LocalVersion {
             source_text: label,
             confidence: conf,
             build_ymd: None,
+            basis_score: score.min(100),
+            evidence,
+            advice: if distinct.len() > 1 {
+                "各版本来源不一致，建议写入 /etc/online-upgrade/firmware-version 统一固件版本标记".into()
+            } else {
+                String::new()
+            },
         };
     }
 
     let build = build_ymd();
 
+    // 交叉核对优先于锚点采信：固件构建日期恰为目标版本、而锚点更旧时，
+    // 判定锚点是插件之外刷机留下的过期记录，改以构建日期作为本机版本。
+    // 若这里不拦截，anchor_trust() 会把「早于构建日期 N 天」当成 mtime
+    // 漂移而给 75 分强依据，把同版本误报成「发现新版本」。
+    if let (Some(t), Some((y, m, d)), Some(anchor_raw)) = (target, build, upgrade_anchor()) {
+        if let Some(anchor) = pick(&anchor_raw) {
+            if let Some(build_version) =
+                anchor_is_stale(&anchor, Some((y, m, d)), Some(t))
+            {
+                let stamp = format!("{y}-{m:02}-{d:02}");
+                let mut ev = evidence.clone();
+                ev.push(format!("固件构建日期 {stamp} 与目标版本 {} 一致", t.as_display()));
+                ev.push(format!(
+                    "升级锚点 {} 早于固件构建日期，判定为插件之外刷机留下的过期记录",
+                    anchor.as_display()
+                ));
+                return LocalVersion {
+                    version: Some(build_version.clone()),
+                    raw: build_version.as_display(),
+                    source: "build_date_matches_target".into(),
+                    source_text: format!(
+                        "固件构建日期 {stamp} 与目标版本 {} 一致（升级锚点已过期）",
+                        t.as_display()
+                    ),
+                    confidence: Confidence::Weak,
+                    build_ymd: None,
+                    basis_score: 55,
+                    evidence: ev,
+                    advice: format!(
+                        "锚点 {} 疑似过期：当前固件很可能已是 {}。通过插件升级一次可刷新锚点，或在固件中写入 /etc/online-upgrade/firmware-version",
+                        anchor.as_display(),
+                        build_version.as_display()
+                    ),
+                };
+            }
+        }
+    }
+
     // SNAPSHOT 镜像没有可解析的发布号时，优先采用「上次成功升级记录的版本」：
     // 它由本插件在刷写成功后写入，比 rootfs 文件 mtime 稳定（overlay copy-up、
-    // 恢复配置都会改动 mtime）。为避免手动刷机后锚点过期，要求锚点日期与
-    // rootfs 构建日期一致才按强依据采信；不一致则退回构建时间。
+    // 恢复配置都会改动 mtime）。锚点不再要求与构建日期逐日相等，而是按
+    // 14 天合理窗口与日期方向给出依据强度；明显超前于构建日期的锚点拒绝采信。
     if let Some(anchor_raw) = upgrade_anchor() {
         if let Some(anchor) = pick(&anchor_raw) {
-            let trusted = match build {
-                Some((y, m, d)) => anchor_matches_build(&anchor, y, m, d),
-                None => true,
-            };
-            if trusted {
+            let (score, note, accept) = anchor_trust(&anchor, build);
+            if accept {
+                let conf = if score >= 70 {
+                    Confidence::Strong
+                } else {
+                    Confidence::Weak
+                };
+                let mut ev = evidence.clone();
+                ev.push(format!("上次成功升级记录 {}：{}", anchor.as_display(), note));
                 return LocalVersion {
                     version: Some(anchor),
                     raw: anchor_raw,
                     source: "last_upgrade_version".into(),
-                    source_text: match build {
-                        Some((y, m, d)) => format!(
-                            "上次成功升级记录的版本（与固件构建日期 {y}-{m:02}-{d:02} 一致）"
-                        ),
-                        None => "上次成功升级记录的版本（未能与构建日期核对）".to_string(),
-                    },
-                    confidence: Confidence::Strong,
+                    source_text: format!("上次成功升级记录的版本（{note}）"),
+                    confidence: conf,
                     build_ymd: None,
+                    basis_score: score,
+                    evidence: ev,
+                    advice: if score < 70 {
+                        "锚点可能过期：成功升级一次可刷新记录，或写入 /etc/online-upgrade/firmware-version".into()
+                    } else {
+                        String::new()
+                    },
                 };
             }
         }
@@ -354,6 +614,13 @@ pub fn detect() -> LocalVersion {
             source_text: format!("固件构建时间 {y}-{m:02}-{d:02}（弱依据，仅能与日期型标签比较）"),
             confidence: Confidence::Weak,
             build_ymd: Some((y, m, d)),
+            basis_score: 30,
+            evidence: {
+                let mut e = evidence.clone();
+                e.push(format!("回退到固件构建时间 {y}-{m:02}-{d:02}（弱依据）"));
+                e
+            },
+            advice: "本机版本仅来自构建时间：成功升级一次可写入强依据，或在固件中写入 /etc/online-upgrade/firmware-version".into(),
         },
         None => LocalVersion::missing(if raw_marker.is_empty() {
             "未知"
@@ -404,6 +671,9 @@ mod tests {
             source_text: "固件构建时间".into(),
             confidence: Confidence::Weak,
             build_ymd: Some((2026, 11, 7)),
+            basis_score: 30,
+            evidence: vec![],
+            advice: String::new(),
         };
         let short = local.comparable(Some(&pick("26.11.08").unwrap())).unwrap();
         assert_eq!(short.as_display(), "26.11.07");
@@ -425,6 +695,9 @@ mod tests {
             source_text: "固件构建时间".into(),
             confidence: Confidence::Weak,
             build_ymd: Some((2026, 11, 7)),
+            basis_score: 30,
+            evidence: vec![],
+            advice: String::new(),
         };
         // 普通发布号与构建时间不可比：直接放弃比较，交给「无法比较」放行，
         // 否则 26.11.07 > 24.10.0 会被当成当前版本更高而拒绝升级。
@@ -436,12 +709,90 @@ mod tests {
     }
 
     #[test]
-    fn anchor_matches_build_date() {
-        assert!(anchor_matches_build(&pick("26.11.10").unwrap(), 2026, 11, 10));
-        assert!(anchor_matches_build(&pick("2026.11.10").unwrap(), 2026, 11, 10));
-        assert!(!anchor_matches_build(&pick("26.11.09").unwrap(), 2026, 11, 10));
-        // 段数不足时不可当作日期使用
-        assert!(!anchor_matches_build(&pick("1.2").unwrap(), 2026, 1, 2));
+    fn anchor_trust_uses_window_not_exact_date() {
+        let a = pick("26.11.10").unwrap();
+        let (exact, _, ok) = anchor_trust(&a, Some((2026, 11, 10)));
+        assert!(ok && exact >= 85);
+        let (within, note, ok) = anchor_trust(&a, Some((2026, 11, 13)));
+        assert!(ok && within >= 70, "{note}");
+        assert!(note.contains("3 天"));
+        let (stale, _, _) = anchor_trust(&a, Some((2026, 12, 20)));
+        assert!(stale < 70);
+        let (future, _, _) = anchor_trust(&a, Some((2026, 11, 1)));
+        assert!(future < 70);
+        let (nodate, _, _) = anchor_trust(&a, None);
+        assert!(nodate >= 60);
+        let short = pick("1.2").unwrap();
+        assert!(anchor_trust(&short, Some((2026, 1, 2))).0 < 70);
+    }
+
+    #[test]
+    fn anchor_is_stale_detects_out_of_band_flash() {
+        // 设备锚点 26.11.10、固件构建于 2026-11-15、目标版本 26.11.15
+        let stale = anchor_is_stale(
+            &pick("26.11.10").unwrap(),
+            Some((2026, 11, 15)),
+            Some(&pick("26.11.15").unwrap()),
+        );
+        assert_eq!(stale.unwrap().as_display(), "26.11.15");
+        // 四位年份标签同样对齐
+        assert_eq!(
+            anchor_is_stale(
+                &pick("26.11.10").unwrap(),
+                Some((2026, 11, 15)),
+                Some(&pick("2026.11.15").unwrap()),
+            )
+            .unwrap()
+            .as_display(),
+            "2026.11.15"
+        );
+        // 锚点不比目标旧时无需判定过期
+        assert!(anchor_is_stale(
+            &pick("26.11.15").unwrap(),
+            Some((2026, 11, 15)),
+            Some(&pick("26.11.15").unwrap()),
+        )
+        .is_none());
+        // 目标不是日期型标签、构建日期与目标不同、无构建日期：均不触发
+        assert!(anchor_is_stale(
+            &pick("26.11.10").unwrap(),
+            Some((2026, 11, 15)),
+            Some(&pick("24.10.0").unwrap()),
+        )
+        .is_none());
+        assert!(anchor_is_stale(
+            &pick("26.11.10").unwrap(),
+            Some((2026, 11, 14)),
+            Some(&pick("26.11.15").unwrap()),
+        )
+        .is_none());
+        assert!(anchor_is_stale(
+            &pick("26.11.10").unwrap(),
+            None,
+            Some(&pick("26.11.15").unwrap()),
+        )
+        .is_none());
+        // 无目标版本（detect() 兼容入口）时不做判定
+        assert!(anchor_is_stale(&pick("26.11.10").unwrap(), Some((2026, 11, 15)), None).is_none());
+    }
+
+    #[test]
+    fn anchor_trust_rejects_clearly_future_anchor() {
+        let stale = pick("26.12.30").unwrap();
+        let (score, _, accept) = anchor_trust(&stale, Some((2026, 11, 15)));
+        assert!(!accept);
+        assert!(score < 60);
+        let recent = pick("26.11.13").unwrap();
+        let (score, _, accept) = anchor_trust(&recent, Some((2026, 11, 15)));
+        assert!(accept && score >= 70);
+    }
+
+    #[test]
+    fn basis_score_is_exposed_for_weak_sources() {
+        let local = LocalVersion::missing("SNAPSHOT");
+        assert_eq!(local.basis_score, 0);
+        assert!(!local.advice.is_empty());
+        assert!(!local.evidence.is_empty());
     }
 
     #[test]
@@ -449,5 +800,96 @@ mod tests {
         // 2000 年以前的时间戳不可能来自固件构建
         let (y, _, _) = civil_from_days((1_000_000i64 + 8 * 3600).div_euclid(86400));
         assert!(y < 2015);
+    }
+
+    #[test]
+    fn firmware_version_marker_paths_are_ordered_and_distinct() {
+        // 固件版本标记首选专用目录，旧路径保留兼容但排在后面；
+        // 插件自身版本文件（/usr/share/.../version）绝不能混入这里，
+        // 否则会把插件版本当成固件版本。
+        assert_eq!(
+            VERSION_FILES[0].0,
+            "/etc/online-upgrade/firmware-version",
+            "专用固件版本标记必须是首选来源"
+        );
+        // 兼容：新目录下的旧文件名 + 历史旧路径，都要能被识别
+        let recognized: Vec<&str> = VERSION_FILES.iter().map(|(p, _)| *p).collect();
+        assert!(recognized.contains(&"/etc/online-upgrade/online-upgrade-version"));
+        assert!(recognized.contains(&"/etc/online-upgrade-version"));
+        let unique: std::collections::BTreeSet<&str> = recognized.iter().copied().collect();
+        assert_eq!(unique.len(), recognized.len(), "版本标记路径不能重复");
+        assert!(
+            recognized
+                .iter()
+                .all(|p| !p.contains("/usr/share/online-upgrade/")),
+            "插件自身版本文件不得作为固件版本来源"
+        );
+    }
+
+    #[test]
+    fn structured_marker_parses_all_fields() {
+        let text = "DEVICE='H5000M'\nARCH='aarch64'\nBUILD_TIME='2026-11-17T01:35:20+08:00'\nBUILD_SEQ='3'\nVERSION='26.11.17'\n";
+        let m = FirmwareMarker::parse(text);
+        assert!(m.structured);
+        assert_eq!(m.device.as_deref(), Some("H5000M"));
+        assert_eq!(m.arch.as_deref(), Some("aarch64"));
+        assert_eq!(m.build_time.as_deref(), Some("2026-11-17T01:35:20+08:00"));
+        assert_eq!(m.build_seq.as_deref(), Some("3"));
+        assert_eq!(m.version.as_deref(), Some("26.11.17"));
+        // 版本文本只取 VERSION 字段，避免 BUILD_TIME/BUILD_SEQ 的数字干扰。
+        assert_eq!(m.version_text(text), "26.11.17");
+        assert_eq!(pick(m.version_text(text)).unwrap().as_display(), "26.11.17");
+        assert_eq!(m.evidence_lines().len(), 4);
+    }
+
+    #[test]
+    fn legacy_single_line_version_still_parses() {
+        let text = "26.11.17\n";
+        let m = FirmwareMarker::parse(text);
+        assert!(!m.structured);
+        assert_eq!(m.version, None);
+        // 无结构化字段时退化为整段文本，旧格式不受影响。
+        assert_eq!(m.version_text(text), "26.11.17");
+        assert_eq!(pick(m.version_text(text)).unwrap().as_display(), "26.11.17");
+    }
+
+    #[test]
+    fn structured_marker_tolerates_missing_fields() {
+        // 只有 VERSION：仍能定版本，附加信息为空也不panic。
+        let only_ver = "VERSION='26.11.17'\n";
+        let m = FirmwareMarker::parse(only_ver);
+        assert!(m.structured);
+        assert_eq!(m.version_text(only_ver), "26.11.17");
+        assert!(m.evidence_lines().is_empty());
+
+        // 只有机型/时间，缺 VERSION：版本文本回退整段，pick 仍能取到日期，
+        // 不会因为缺字段而崩溃或把机型数字误当版本（机型无点分数字）。
+        let partial = "DEVICE='H5000M'\nBUILD_TIME='2026-11-17T01:35:20+08:00'\n";
+        let m2 = FirmwareMarker::parse(partial);
+        assert!(m2.structured);
+        assert_eq!(m2.version, None);
+        assert_eq!(m2.version_text(partial).trim(), partial.trim());
+        assert_eq!(m2.evidence_lines().len(), 2);
+
+        // 空文件：全默认，不结构化。
+        let empty = FirmwareMarker::parse("");
+        assert!(!empty.structured);
+        assert_eq!(empty.version_text(""), "");
+    }
+
+    #[test]
+    fn structured_marker_avoids_build_number_misread() {
+        // 回归防护：结构化后只认 VERSION 字段，结果确定，不依赖 pick() 的打分。
+        let text = "DEVICE='X86'\nARCH='x86-64'\nBUILD_TIME='2026-11-17T23.59.58+08:00'\nBUILD_SEQ='12'\nVERSION='26.11.17'\n";
+        let m = FirmwareMarker::parse(text);
+        let picked = pick(m.version_text(text)).unwrap();
+        assert_eq!(picked.as_display(), "26.11.17", "必须取 VERSION 而非时间戳");
+
+        // 即便某天 pick() 的打分规则变化（如时间戳日期得分更高），
+        // version_text() 直接返回字段值，判定仍锁定在 VERSION 上。
+        assert_eq!(m.version_text(text), "26.11.17");
+        // BUILD_TIME 里的点分时间不能泄漏进版本文本。
+        assert!(!m.version_text(text).contains("23.59.58"));
+        assert!(!m.version_text(text).contains("12"));
     }
 }
