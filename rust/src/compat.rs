@@ -1085,6 +1085,15 @@ mod tests {
     }
 
     #[test]
+    fn x86_head_token_overrides_mislabeled_aarch64() {
+        let (arch, evidence) = asset_arch("x86-netwiz-fm350-aarch64-26.11.16-efi.img.gz");
+        assert_eq!(arch, Arch::X86);
+        assert!(evidence.iter().any(|x| x.contains("机型段优先")));
+        let (h69k, _) = asset_arch("hinlink-opc-h69k-rockchip-armv8-26.11.17-sysupgrade.img.gz");
+        assert_eq!(h69k, Arch::Aarch64);
+    }
+
+    #[test]
     fn wrong_arch_blocks_even_with_rule() {
         let r = evaluate_with_rule(&dev(), "x86-64-generic-squashfs-combined.img.gz", "^.*$");
         assert_eq!(r.level, CompatLevel::Incompatible);
